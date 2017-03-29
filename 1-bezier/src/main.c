@@ -38,6 +38,9 @@ int numCV = 0;
 int WindowHeight;
 int WindowWidth;
 
+// clicked point - to drag
+int clickedPoint;
+
 /* function definitions */
 
 void keyboard (unsigned char key, int x, int y) {
@@ -68,14 +71,70 @@ void removeFirstPoint () {
     }
 }
 
+int getPointInRange ( float x, float y ) {
+    int near;
+    double lowerDistance;
+    double r;
+    double distance;
+
+    near = -1;
+    r = 0.1;
+    lowerDistance = sqrt(pow (x - CV[0][0], 2.0 ) + pow (y - CV[0][1], 2.0 ) );
+    if( lowerDistance <= r ) near = 0;
+
+    for ( int i = 1 ; i < numCV ; i++ ) {
+        distance = sqrt(pow ( x - CV[i][0], 2.0 ) + pow ( y - CV[i][1], 2.0 ) );
+        if ( distance <= r && distance <= lowerDistance ) {
+            near = i;
+            lowerDistance = distance;
+        }
+    }
+
+    return near;
+}
+
+// MOVES A POINT
+void movePoint ( int i, int x, int y ) {
+    float xPos;
+    float yPos;
+
+    yPos = ((float) y) / ((float) (WindowHeight - 1));
+    xPos = ((float) x) / ((float) (WindowWidth - 1));
+    yPos = 1.0f - yPos;			   // Flip value since y position is from top row.
+
+    CV[i][0] = xPos;
+    CV[i][1] = yPos;
+    glutPostRedisplay ();
+}
+
 // Left button presses place a control point.
 void mouse (int button, int state, int x, int y) {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        float xPos = ((float) x) / ((float) (WindowWidth - 1));
-        float yPos = ((float) y) / ((float) (WindowHeight - 1));
-        yPos = 1.0f - yPos;			   // Flip value since y position is from top row.
-        addNewPoint (xPos, yPos);
-        glutPostRedisplay ();
+    float xPos;
+    float yPos;
+
+    yPos = ((float) y) / ((float) (WindowHeight - 1));
+    xPos = ((float) x) / ((float) (WindowWidth - 1));
+    yPos = 1.0f - yPos;			   // Flip value since y position is from top row.
+
+    // [NEW] check if point in range
+    if( button == GLUT_LEFT_BUTTON && state == GLUT_DOWN ) {
+        clickedPoint = getPointInRange( xPos , yPos );
+        printf("%d\n", clickedPoint);
+    } else if ( button == GLUT_LEFT_BUTTON && state == GLUT_UP ) {
+        if ( clickedPoint >= 0 ) {
+            movePoint ( clickedPoint, x, y );
+            clickedPoint = -1;
+        } else {
+            addNewPoint(xPos, yPos);
+            glutPostRedisplay();
+        }
+    }
+}
+
+// HANDLES MOUSE MOVE WHILE DRAGGING
+void mousemove (int x, int y) {
+    if ( clickedPoint >= 0 ) {
+        movePoint ( clickedPoint, x, y );
     }
 }
 
@@ -207,7 +266,8 @@ int main (int argc, char **argv) {
     glutReshapeFunc (reshape);
     glutKeyboardFunc (keyboard);
     glutMouseFunc (mouse);
-
+    glutMotionFunc(mousemove); // detects mouse move while dragging
+//    glutPassiveMotionFunc(mousemove); // detects mouse move
     glutMainLoop ();
     return 0;						   // This line is never reached
 }
