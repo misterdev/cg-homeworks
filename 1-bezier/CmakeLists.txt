@@ -25,6 +25,9 @@ if(NOT OPENGL_FOUND)
     message(ERROR " OPENGL not found!")
 endif(NOT OPENGL_FOUND)
 
+set(CMAKE_WARN_DEPRECATED FALSE)
+ADD_DEFINITIONS(-Wno-deprecated-declarations)
+
 set(SOURCE_FILES src/main.c)
 add_executable(1-bezier ${SOURCE_FILES})
 

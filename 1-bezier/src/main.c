@@ -99,14 +99,35 @@ void addNewPoint (float x, float y) {
     numCV++;
 }
 
+void decasteljaus (float t) {
+    float temp[numCV][3];
+    int i;
+
+    for (i = 0; i < numCV; i++) {
+        temp[i][0] = CV[i][0];
+        temp[i][1] = CV[i][1];
+        temp[i][2] = CV[i][2];
+    }
+
+    for (i = 1; i < numCV; i++) {
+        for (int j = 0; j < numCV - i; j++) {
+            temp[j][0] = ( (1-t) * temp[j][0] ) + ( t * temp[j+1][0]);
+            temp[j][1] = ( (1-t) * temp[j][1] ) + ( t * temp[j+1][1]);
+            temp[j][2] = ( (1-t) * temp[j][2] ) + ( t * temp[j+1][2]);
+
+        }
+    }
+    glVertex3f (temp[0][0], temp[0][1], temp[0][2]);
+}
+
 void drawBezier () {
     int i;
     glEnable(GL_MAP1_VERTEX_3);
-    glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, CV);
+    glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, &CV[0][0]);
     glBegin(GL_LINE_STRIP);
-    for ( i = 0; i <= 100; i++)
-    {
-        glEvalCoord1d( (GLdouble) (i / 100.0));
+    for ( i = 0; i <= 100; i++) {
+//        glEvalCoord1d( (GLdouble) (i / 100.0));
+        decasteljaus( (float) (i / 100.0));
     }
     glEnd();
     glDisable(GL_MAP1_VERTEX_3);
