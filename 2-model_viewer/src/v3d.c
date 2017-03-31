@@ -66,16 +66,6 @@ void v3dMul( const float v[], const float k, float res[] )
     }
 }
 
-/* res = k * v */
-void v3dAvg( const float v1[], const float v2[], float res[] )
-{
-    int i;
-    for( i=0 ; i<3 ; i++) {
-        res[i] = v1[i] + v2[i];
-        res[i] = 0.5f * res[i];
-    }
-}
-
 /* set all cooardinates to zero */
 void v3dSetZero( float v[] )
 {

@@ -27,6 +27,8 @@ sono primitive GLU e mesh poligonali in formato *.m
 #include <GL/freeglut.h>
 #endif
 
+#include "v3d.h"
+
 #define MAX_V 10000 /* max number of vertices allowed in the mesh model */
 #define M_PI 3.141592653589793
 
@@ -157,6 +159,26 @@ void computePointOnTrackball( int x, int y, float p[3] )
     //printf( "p = (%.2f, %.2f, %.2f)\n", p[0], p[1], p[2] );
 }
 
+
+void zoom(int direction) {
+    // c(t) = P0 + tv
+    // P0 = camE
+    // t = 1
+    // X calcolare v = P0 - P1
+    float temp[3];
+    float v[3];
+    float tv[3];
+    float origin[3] = {0, 0, 0};
+    float t;
+
+    t = 0.1f * (float) direction;
+
+    v3dSub(origin, camE, v);
+
+    v3dMul(v, t, tv);
+    v3dSum(camE, tv, camE);
+}
+
 void mouse( int button, int state, int x, int y )
 {
     if( button==GLUT_LEFT_BUTTON && state==GLUT_DOWN )
@@ -172,7 +194,6 @@ void mouse( int button, int state, int x, int y )
 }
 
 
-
 void motion( int x, int y )
 {
     float dx, dy, dz;
@@ -185,13 +206,19 @@ void motion( int x, int y )
         dz = tbV[2] - tbW[2];
         if (dx || dy || dz)
         {
-            tbAngle = sqrt(dx*dx + dy*dy + dz*dz) * (180.0 / M_PI);
+            tbAngle = sqrt(dx * dx + dy * dy + dz * dz) * (180.0 / M_PI);
             tbAxis[0] = tbW[1]*tbV[2] - tbW[2]*tbV[1];
             tbAxis[1] = tbW[2]*tbV[0] - tbW[0]*tbV[2];
             tbAxis[2] = tbW[0]*tbV[1] - tbW[1]*tbV[0];
+//            if(tbAxis < 0) m = -1;
+//            tbAngle += m * tbAngle2;
+//            if(tbAngle>360) tbAngle = tbAngle - (360 * (int)(tbAngle/360));
         }
-
-        //printf( "tbAngle = %.2f tbAxis = (%.2f, %.2f, %.2f)\n", tbAngle, tbAxis[0], tbAxis[1], tbAxis[2] );
+//        printf( "tbAxis = %.2f %.2f %.2f tbAngle= %.2f tbAngle2= %.2f \n\n", tbAxis[0], tbAxis[1], tbAxis[2], tbAngle, tbAngle2);
+//        printf( "tbAngle = |||| %.2f ||||| tbAngle2 = %.2f \n", tbAngle, tbAngle2);
+//        tbAngle += tbAngle2;
+//        printf( "tbAngle = %.2f tbAngle2 = %.2f \n\n", tbAngle, tbAngle2);
+//        y=1 se > doestra se < sinistra
     }
 
     glutPostRedisplay();
@@ -212,7 +239,9 @@ void keyboard (unsigned char key, int x, int y)
     float* pos = NULL;
     float step;
 
-    if( mode == MODE_CHANGE_EYE_POS ) {
+    if ( mode == MODE_CHANGE_EYE_POS ) {
+        pos = camE;
+        step = 0.5;
     } else if( mode == MODE_CHANGE_REFERENCE_POS ) {
         pos = camC;
         step = 0.1;
@@ -241,11 +270,11 @@ void keyboard (unsigned char key, int x, int y)
             pos[2] += step;
         else if( key == 'Z' )
             pos[2] -= step;
-        else if( key == 'i' ) {
-//            fovy -= 1;
+        else if( key == 'v' ) {
+            zoom(-1);
         }
-        else if( key == 'I') {
-//            fovy += 1;
+        else if( key == 'V') {
+            zoom(1);
         }
 
         glutPostRedisplay();
@@ -332,6 +361,8 @@ void display()
     gluLookAt( camE[0], camE[1], camE[2], camC[0], camC[1], camC[2], camU[0], camU[1], camU[2] );
 
     // Trackball rotation. - viene messa per prima perche' verra' usata per ultima
+//    printf("TRACKBALL, %.2f %.2f %.2f %.2f\n", tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
+
     glRotatef(tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
 
     glLineWidth(2);
@@ -348,7 +379,7 @@ void display()
 
 
     //Draw some quadrics
-//	gluSphe   re(myReusableQuadric, 1.0, 12, 12);
+	gluSphere(myReusableQuadric, 1.0, 12, 12);
 
     glTranslated(0.0, 0.0, 1.5);
     gluCylinder(myReusableQuadric, 0.5, 0.2, 0.5, 12, 12);
@@ -372,9 +403,9 @@ void reset()
     angle[1] = 0.0;
     angle[2] = 0.0;
 
-    camE[0] = 10;
-    camE[1] = 10;
-    camE[2] = 10;
+    camE[0] = 20.75;//8.8;
+    camE[1] = 11.55;//4.9;
+    camE[2] = 21.22;//9.0;
 
     camC[0] = 0.0;
     camC[1] = 0.0;
@@ -389,7 +420,7 @@ void reset()
     lightPos[2] =  5.0;
     lightPos[3] =  1.0;
 
-    fovy = 40;
+    fovy = 20;
     wireframe = 1;
     cull = 0;
     mater = 1;
@@ -401,6 +432,8 @@ void reset()
     glutPostRedisplay();
 
 }
+// piu modelli
+// glPushMatrix(), glPopMatrix().
 
 void init()
 {
@@ -412,6 +445,7 @@ void init()
     int i, j, nrighe;
     int ii, ids[3];
     FILE * idf;
+    FILE* files[3];
     char s[10];
     float a,b,c;
     int nface,nvert,noused;
@@ -430,10 +464,16 @@ void init()
 
     //apertura del file *.m
     printf("Apertura del file...\n");
+    const char* FILENAME = "../data/pig.m";
+
+
 #ifdef WIN32
-    if ((idf = fopen( "../../data/cow.m", "r")) == NULL)
+    if ((idf = fopen( FILENAME, "r")) == NULL)
 #else
-    if ((idf = fopen( "data/cow.m", "r")) == NULL)
+    if ((idf = fopen( FILENAME, "r")) == NULL ||
+        ( files[0] = fopen( "../data/pig.m", "r") == NULL ) ||
+        ( files[1] = fopen( "../data/cow.m", "r") == NULL )
+    )
 #endif
     {
         perror("file non trovato\n");
@@ -444,6 +484,8 @@ void init()
     nface=0;
     nvert=0;
 
+    int vnormalcounts[MAX_V] = {0};
+////////
     while( !feof( idf ) )
     {
         fscanf(idf,"%s %d %f %f %f",s, &noused, &a,&b,&c);
@@ -469,9 +511,9 @@ void init()
                 face[1] = (int)b - 1;
                 face[2] = (int)c - 1;
 
-
                 float temp1[3];
                 float temp2[3];
+
                 v3dSub(vertices[face[1]], vertices[face[0]], temp1);
                 v3dSub(vertices[face[2]], vertices[face[0]], temp2);
                 v3dCross(temp2, temp1, fnormal);
@@ -480,7 +522,8 @@ void init()
 
                 for(int k = 0; k < 3; k++) { // itero sui vertici della faccia
                     vnormal = vnormals[face[k]];
-                    v3dAvg(vnormal, fnormal, vnormal);
+                    v3dSum(vnormal, fnormal, vnormal);
+                    vnormalcounts[face[k]]++;
                 }
 
                 break;
@@ -497,6 +540,13 @@ void init()
     nface=nface-1;
     printf("Chiusura del file...Vertices %d Faces %d -> %d\n",nvert,nface,nrighe);
     fclose(idf);
+
+    // Finito di leggere il file, faccio la media
+    for ( int k = 0 ; k < nvert ; k++ ) {
+        v3dMul(vnormals[k], 1.0f / (float) vnormalcounts[k], vnormals[k]);
+        vnormalcounts[k] = 0;
+    }
+
 
     // crea la display list mesh
     printf("Creazione display list .. \n");
@@ -586,6 +636,7 @@ void menu(int sel)
     if(sel == MODE_CHANGE_CULLING)
     {
         cull = !cull;
+        (cull ? glEnable : glDisable)(GL_CULL_FACE);
     }
     if(sel == MODE_CHANGE_WIREFRAME)
     {
@@ -627,6 +678,9 @@ int main (int argc, char** argv)
     glutInitWindowPosition (0, 0);
     glutCreateWindow("Model Viewer ");
 
+    // Set culling face GL_BACK, GL_FRONT_AND_BACK
+    glCullFace(GL_FRONT);
+
     glutDisplayFunc(display);
     glutSpecialFunc(special);		// frecce up,down,left,right
     glutKeyboardFunc(keyboard);
@@ -637,18 +691,18 @@ int main (int argc, char** argv)
     glutCreateMenu(menu);
     glutAddMenuEntry("Menu",-1); //-1 significa che non si vuole gestire questa riga
     glutAddMenuEntry("",-1);
-    glutAddMenuEntry("** Change eye point (use x,y,z,X,Y,Z)", MODE_CHANGE_EYE_POS);
+    glutAddMenuEntry("Change eye point (use x,y,z,X,Y,Z)", MODE_CHANGE_EYE_POS);
     glutAddMenuEntry("Change reference point (use x,y,z,X,Y,Z)", MODE_CHANGE_REFERENCE_POS);
     glutAddMenuEntry("Change up vector (use x,y,z,X,Y,Z)", MODE_CHANGE_UP_POS);
     glutAddMenuEntry("Change light position (use x,y,z,X,Y,Z)", MODE_CHANGE_LIGHT_POS);
-    //glutAddMenuEntry("**Zoom (use f,F)", MODE_CHANGE_ZOOM);
+    glutAddMenuEntry("Zoom (use v,V)", MODE_CHANGE_ZOOM);
     glutAddMenuEntry("**Rotate Object (use x,y,z,X,Y,Z)", MODE_ROTATE_OBJECT );
 
     glutAddMenuEntry("",-1);
-    glutAddMenuEntry("**Culling", MODE_CHANGE_CULLING);
-    glutAddMenuEntry("**Wireframe", MODE_CHANGE_WIREFRAME);
+    glutAddMenuEntry("Culling", MODE_CHANGE_CULLING);
+    glutAddMenuEntry("Wireframe", MODE_CHANGE_WIREFRAME);
     glutAddMenuEntry("**Ortographic or Prospective", MODE_CHANGE_PROJECTION);
-    glutAddMenuEntry("**Shading", MODE_CHANGE_SHADING);
+    glutAddMenuEntry("Shading", MODE_CHANGE_SHADING);
     glutAddMenuEntry("Material", MODE_CHANGE_MATERIAL);
 
     glutAddMenuEntry("",-1);

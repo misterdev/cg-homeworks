@@ -16,8 +16,6 @@ void v3dSub( const float v1[], const float v2[], float res[] );
 
 void v3dMul( const float v[], const float k, float res[] );
 
-void v3dAvg( const float v1[], const float v2[], float res[] );
-
 float v3dLength( const float vec[] );
 
 void v3dNormalize( float vec[] );

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
-project(2-model_viewer)
+project(3_blender)
 
 set(CMAKE_C_STANDARD 90)
 
@@ -29,9 +29,7 @@ set(CMAKE_WARN_DEPRECATED FALSE)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
 
 set(SOURCE_FILES
-        src/main.c
-        src/v3d.c
-        src/v3d.h)
-add_executable(2-model_viewer ${SOURCE_FILES})
+        src/main.c)
+add_executable(3_blender ${SOURCE_FILES})
 
-target_link_libraries(2-model_viewer ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
+target_link_libraries(3_blender ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
