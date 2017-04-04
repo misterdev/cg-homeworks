@@ -29,33 +29,41 @@ sono primitive GLU e mesh poligonali in formato *.m
 
 #include "v3d.h"
 
-#define MAX_V 10000 /* max number of vertices allowed in the mesh model */
+#define MAX_V 10000 // max number of vertices allowed in the mesh model
+#define MAX_P 3     // max number of figures allowed in the program
 #define M_PI 3.141592653589793
 
 int 	listname;
+int  	wireframe; // controls the visualization of primitives via glPolygonMode
+int     orpro;     // controls the type of projection via gluPerspective and glOrtho
+int     cull;      // toggles backface culling via glEnable( GL_CULL_FACE ) and glDisable( GL_CULL_FACE );
+int     mater;     // controls the material associated with the model via glMaterial
+int     shading;   // controls the shading model via glShadeModel
 
-int  	wireframe; /* controls the visualization of primitives via glPolygonMode */
-int     orpro;     /* controls the type of projection via gluPerspective and glOrtho */
-int     cull;      /* toggles backface culling via glEnable( GL_CULL_FACE ) and glDisable( GL_CULL_FACE ); */
-int     mater;     /* controls the material associated with the model via glMaterial */
-int     shading;   /* controls the shading model via glShadeModel */
+GLfloat fovy;                       // angolo del punto di vista
+GLfloat angle[3];                   // rotazione degli assi WCS
 
-GLfloat fovy; /* angolo del punto di vista */
-GLfloat angle[3]; /* rotazione degli assi WCS*/
-
-GLfloat camC[3]; /* centro del sistema */
-GLfloat camE[3]; /* punto di vista */
-GLfloat camU[3]; /* vettore su della camera */
-GLfloat lightPos[4]; /* posizione della luce */
+GLfloat camC[3];        // centro del sistema
+GLfloat camE[3];        // punto di vista
+GLfloat camU[3];        // vettore su della camera
+GLfloat lightPos[4];    // posizione della luce
 
 GLfloat brass_ambient[] = {0.33, 0.22, 0.03, 1.0}, brass_diffuse[] = {0.78, 0.57, 0.11, 1.0}, brass_specular[] = {0.99, 0.91, 0.81, 1.0}, brass_shininess[] = {27.8};
 GLfloat red_plastic_ambient[] = {0.0, 0.0, 0.0}, red_plastic_diffuse[] = {0.5, 0.0, 0.0}, red_plastic_specular[] = {0.7, 0.6, 0.6}, red_plastic_shininess[] = {32.0};
 GLfloat emerald_ambient[] = {0.0215, 0.1745, 0.0215}, emerald_diffuse[] = {0.07568, 0.61424, 0.07568}, emerald_specular[] = {0.633, 0.727811, 0.633}, emerald_shininess[] = {76.8};
 GLfloat slate_ambient[] = {0.02, 0.02, 0.02}, slate_diffuse[] = {0.02, 0.01, 0.01}, slate_specular[] = {0.4, 0.4, 0.4}, slate_shininess[] = {.78125};
 
-GLfloat aspect = 1.0; /* rapporto larghezza-altezza della viewport */
+
+GLfloat aspect = 1.0;   // rapporto larghezza-altezza della viewport
 
 GLUquadricObj* myReusableQuadric = 0;
+
+char*   pnames[MAX_P] = {"../data/cow.m", "../data/toy2.m", "../data/cbun.m"};   // names of the files to use
+int     pSelected   = MAX_P;
+// traslazioni rispetto agli assi
+GLfloat pTranslations[MAX_P+1][3] = { { 1, 1, 0 }, { 2, 0.5, 2 }, { 0, -0.5, 2 } , { 0, 0, 0 } };
+GLfloat pScales[MAX_P+1]          = { 0.25, 0.25, 10.5, 1 };
+GLfloat pRotations[MAX_P+1][3]    = { { 0, 0, 0 }, { 90, 0, 0 }, { 0, 90, 0  }, { 0, 0, 0 } };
 
 /* Trackball variables */
 float tbAngle = 0.0;
@@ -65,8 +73,7 @@ int tbDragging = 0;
 float tbV[3];
 float tbW[3];
 
-enum Modes
-{
+enum Modes {
     MODE_INVALID,
     MODE_CHANGE_EYE_POS,
     MODE_CHANGE_REFERENCE_POS,
@@ -74,6 +81,7 @@ enum Modes
     MODE_CHANGE_LIGHT_POS,
     MODE_CHANGE_ZOOM,
     MODE_ROTATE_OBJECT,
+    MODE_FLOAT_AROUND,
 
     MODE_CHANGE_CULLING,
     MODE_CHANGE_WIREFRAME,
@@ -81,6 +89,7 @@ enum Modes
     MODE_CHANGE_PROJECTION,
     MODE_CHANGE_MATERIAL,
 
+    MODE_TRANSLATE_OBJECT,
     MODE_TRANSLATE_WCS,
     MODE_ROTATE_WCS,
     MODE_TRANSLATE_OCS,
@@ -93,24 +102,19 @@ enum Modes
     MODE_QUIT
 };
 
-enum Modes mode = MODE_CHANGE_REFERENCE_POS; /* global variable that stores the current mode */
-
+enum Modes mode = MODE_CHANGE_REFERENCE_POS; // global variable that stores the current mode
 
 int WindowWidth = 700;
 int WindowHeight = 700;
 
-
-
-void drawAxis( float scale, int drawLetters )
-{
+void drawAxis( float scale, int drawLetters ) {
     glDisable( GL_LIGHTING );
     glPushMatrix();
     glScalef( scale, scale, scale );
     glBegin( GL_LINES );
 
     glColor4d( 1.0, 0.0, 0.0, 1.0 );
-    if( drawLetters )
-    {
+    if( drawLetters ) {
         glVertex3f( .8f, 0.05f, 0.0 );  glVertex3f( 1.0, 0.25f, 0.0 ); /* Letter X */
         glVertex3f( 0.8f, .25f, 0.0 );  glVertex3f( 1.0, 0.05f, 0.0 );
     }
@@ -118,8 +122,7 @@ void drawAxis( float scale, int drawLetters )
 
 
     glColor4d( 0.0, 1.0, 0.0, 1.0 );
-    if( drawLetters )
-    {
+    if( drawLetters ) {
         glVertex3f( 0.10f, 0.8f, 0.0 );   glVertex3f( 0.10f, 0.90f, 0.0 ); /* Letter Y */
         glVertex3f( 0.10f, 0.90f, 0.0 );  glVertex3f( 0.05, 1.0, 0.0 );
         glVertex3f( 0.10f, 0.90f, 0.0 );  glVertex3f( 0.15, 1.0, 0.0 );
@@ -128,8 +131,7 @@ void drawAxis( float scale, int drawLetters )
 
 
     glColor4d( 0.0, 0.0, 1.0, 1.0 );
-    if( drawLetters )
-    {
+    if( drawLetters ) {
         glVertex3f( 0.05f, 0, 0.8f );  glVertex3f( 0.20f, 0, 0.8f ); /* Letter Z*/
         glVertex3f( 0.20f, 0, 0.8f );  glVertex3f( 0.05, 0, 1.0 );
         glVertex3f( 0.05f, 0, 1.0 );   glVertex3f( 0.20, 0, 1.0 );
@@ -146,8 +148,7 @@ void drawAxis( float scale, int drawLetters )
     glEnable( GL_LIGHTING );
 }
 
-void computePointOnTrackball( int x, int y, float p[3] )
-{
+void computePointOnTrackball( int x, int y, float p[3] ) {
     float zTemp;
     //map to [-1;1]
     p[0] = (2.0f * x - WindowWidth)  / WindowWidth;
@@ -159,13 +160,11 @@ void computePointOnTrackball( int x, int y, float p[3] )
     //printf( "p = (%.2f, %.2f, %.2f)\n", p[0], p[1], p[2] );
 }
 
-
-void zoom(int direction) {
+void zoom( int direction ) {
     // c(t) = P0 + tv
     // P0 = camE
     // t = 1
     // X calcolare v = P0 - P1
-    float temp[3];
     float v[3];
     float tv[3];
     float origin[3] = {0, 0, 0};
@@ -179,33 +178,25 @@ void zoom(int direction) {
     v3dSum(camE, tv, camE);
 }
 
-void mouse( int button, int state, int x, int y )
-{
-    if( button==GLUT_LEFT_BUTTON && state==GLUT_DOWN )
-    {
+void mouse( int button, int state, int x, int y ) {
+    if( button==GLUT_LEFT_BUTTON && state==GLUT_DOWN ) {
         tbDragging = 1;
         computePointOnTrackball( x, y, tbV );
     }
-    if( button==GLUT_LEFT_BUTTON && state==GLUT_UP )
-    {
+    if( button==GLUT_LEFT_BUTTON && state==GLUT_UP ) {
         tbDragging = 0;
     }
-
 }
 
-
-void motion( int x, int y )
-{
+void motion( int x, int y ) {
     float dx, dy, dz;
 
     computePointOnTrackball(x, y, tbW);
-    if(tbDragging)
-    {
+    if(tbDragging) {
         dx = tbV[0] - tbW[0];
         dy = tbV[1] - tbW[1];
         dz = tbV[2] - tbW[2];
-        if (dx || dy || dz)
-        {
+        if (dx || dy || dz) {
             tbAngle = sqrt(dx * dx + dy * dy + dz * dz) * (180.0 / M_PI);
             tbAxis[0] = tbW[1]*tbV[2] - tbW[2]*tbV[1];
             tbAxis[1] = tbW[2]*tbV[0] - tbW[0]*tbV[2];
@@ -224,18 +215,15 @@ void motion( int x, int y )
     glutPostRedisplay();
 }
 
-void passiveMotion( int x, int y )
-{
+void passiveMotion( int x, int y ) {
 
 }
 
-void special( int key, int x, int y )
-{
+void special( int key, int x, int y ) {
 
 }
 
-void keyboard (unsigned char key, int x, int y)
-{
+void keyboard (unsigned char key, int x, int y) {
     float* pos = NULL;
     float step;
 
@@ -251,8 +239,12 @@ void keyboard (unsigned char key, int x, int y)
     } else if( mode == MODE_CHANGE_LIGHT_POS ) {
         pos = lightPos;
         step = 1.0;
+    } else if( mode == MODE_TRANSLATE_OBJECT ) {
+        pos = pTranslations[pSelected];
+        step = 1.0;
     } else if( mode == MODE_ROTATE_OBJECT ) {
-
+        pos = pRotations[pSelected];
+        step = 1.0;
     }
 
 
@@ -276,6 +268,18 @@ void keyboard (unsigned char key, int x, int y)
         else if( key == 'V') {
             zoom(1);
         }
+        else if( key == '0') {
+            pSelected = MAX_P;  // the world object
+        }
+        else if( key == '1') {
+            pSelected = 0;      // the 1st object
+        }
+        else if( key == '2') {
+            pSelected = 1;      // the 2nd object
+        }
+        else if( key == '3') {
+            pSelected = 2;      // the 3rd object
+        }
 
         glutPostRedisplay();
     }
@@ -285,8 +289,7 @@ void keyboard (unsigned char key, int x, int y)
 
 }
 
-void drawGluSlantCylinderWithCaps( double height, double radiusBase, double radiusTop, int slices, int stacks )
-{
+void drawGluSlantCylinderWithCaps( double height, double radiusBase, double radiusTop, int slices, int stacks ) {
     // First draw the cylinder
     gluCylinder( myReusableQuadric, radiusBase, radiusTop, height, slices, stacks );
 
@@ -304,31 +307,26 @@ void drawGluSlantCylinderWithCaps( double height, double radiusBase, double radi
 
 }
 
-void display()
-{
-    if (mater==0) //ottone
-    {
+void display() {
+    if (mater==0) { // ottone
         glLightfv(GL_LIGHT0, GL_AMBIENT, brass_ambient);
         glMaterialfv(GL_FRONT, GL_DIFFUSE, brass_diffuse);
         glMaterialfv(GL_FRONT, GL_SPECULAR, brass_specular);
         glMaterialfv(GL_FRONT, GL_SHININESS, brass_shininess);
     }
-    if (mater==1) //plastica rossa
-    {
+    if (mater==1) { // plastica rossa
         glLightfv(GL_LIGHT0, GL_AMBIENT, red_plastic_ambient);
         glMaterialfv(GL_FRONT, GL_DIFFUSE, red_plastic_diffuse);
         glMaterialfv(GL_FRONT, GL_SPECULAR, red_plastic_specular);
         glMaterialfv(GL_FRONT, GL_SHININESS, red_plastic_shininess);
     }
-    if (mater==2) //smeraldo
-    {
+    if (mater==2) { // smeraldo
         glLightfv(GL_LIGHT0, GL_AMBIENT, emerald_ambient);
         glMaterialfv(GL_FRONT, GL_DIFFUSE, emerald_diffuse);
         glMaterialfv(GL_FRONT, GL_SPECULAR, emerald_specular);
         glMaterialfv(GL_FRONT, GL_SHININESS, emerald_shininess);
     }
-    if (mater==3) //slate
-    {
+    if (mater==3) { // slate
         glLightfv(GL_LIGHT0, GL_AMBIENT, slate_ambient);
         glMaterialfv(GL_FRONT, GL_DIFFUSE, slate_diffuse);
         glMaterialfv(GL_FRONT, GL_SPECULAR, slate_specular);
@@ -350,9 +348,16 @@ void display()
     glEnable( GL_LIGHTING );
     glEnable( GL_LIGHT0 );
 
+
     glMatrixMode( GL_PROJECTION );
+
     glLoadIdentity ();
-    gluPerspective( fovy, aspect, 1, 100);
+
+    if (orpro)
+        gluPerspective( fovy, aspect, 1, 100);
+    else
+        glOrtho(-2.5f, 2.5f, -2.5f, 2.5f, 11.0f, 100.0f);
+
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -369,20 +374,32 @@ void display()
     drawAxis( 2.0, 1 );
     glLineWidth(1);
 
-    glRotatef(angle[0], 1.0, 0.0, 0.0);
-    glRotatef(angle[1], 0.0, 1.0, 0.0);
-    glRotatef(angle[2], 0.0, 0.0, 1.0);
+    glTranslatef( pTranslations[MAX_P][0], pTranslations[MAX_P][1], pTranslations[MAX_P][2]);
+    glRotatef( pRotations[MAX_P][0], 1.0, 0.0, 0.0 );
+    glRotatef( pRotations[MAX_P][1], 0.0, 1.0, 0.0 );
+    glRotatef( pRotations[MAX_P][2], 0.0, 0.0, 1.0 );
+    glScalef( pScales[MAX_P], pScales[MAX_P], pScales[MAX_P] );
 
-    //draw the mesh model
+    //draw the mesh modelxx
     drawAxis( 1.0, 0 );
-    glCallList(listname);
+    for ( int p=0 ; p < MAX_P ; p++ ) {
+        glPushMatrix();
+        glTranslated(pTranslations[p][0], pTranslations[p][1], pTranslations[p][2]);
+        glScalef( pScales[p], pScales[p], pScales[p] );
+        glRotatef( pRotations[p][0], 1.0, 0.0, 0.0);
+        glRotatef( pRotations[p][1], 0.0, 1.0, 0.0);
+        glRotatef( pRotations[p][2], 0.0, 0.0, 1.0);
+        glCallList(listname+p);
+        glPopMatrix();
+    }
+
 
 
     //Draw some quadrics
-	gluSphere(myReusableQuadric, 1.0, 12, 12);
+//	gluSphere(myReusableQuadric, 1.0, 12, 12);
 
-    glTranslated(0.0, 0.0, 1.5);
-    gluCylinder(myReusableQuadric, 0.5, 0.2, 0.5, 12, 12);
+//    glTranslated(0.0, 0.0, 1.5);
+//    gluCylinder(myReusableQuadric, 0.5, 0.2, 0.5, 12, 12);
 
     //gluDisk(myReusableQuadric, 0.5, 1.0, 10, 10);
     //gluPartialDisk( myReusableQuadric, 0.5, 1.0, 10, 10, 0.0, 45.0);
@@ -397,15 +414,17 @@ void display()
     glutSwapBuffers();
 }
 
-void reset()
-{
-    angle[0] = 0.0;
-    angle[1] = 0.0;
-    angle[2] = 0.0;
+void reset() {
+//    angle[0] = 0.0;
+//    angle[1] = 0.0;
+//    angle[2] = 0.0;
+    pTranslations[MAX_P][0] = 0.0;
+    pTranslations[MAX_P][1] = 0.0;
+    pTranslations[MAX_P][2] = 0.0;
 
-    camE[0] = 20.75;//8.8;
-    camE[1] = 11.55;//4.9;
-    camE[2] = 21.22;//9.0;
+    camE[0] = 8.8;
+    camE[1] = 4.9;
+    camE[2] = 9.0;
 
     camC[0] = 0.0;
     camC[1] = 0.0;
@@ -435,52 +454,30 @@ void reset()
 // piu modelli
 // glPushMatrix(), glPopMatrix().
 
-void init()
-{
-    int 	faces[MAX_V][3];    /* faces */
-    float 	vertices[MAX_V][3]; /* vertices */
-    float 	vnormals[MAX_V][3]; /* vertex normals */
-    float   fnormals[MAX_V][3]; /* face normals */
-
-    int i, j, nrighe;
-    int ii, ids[3];
+void readFile (const char* FILENAME, int faces[MAX_V][3], int nface, float vertices[MAX_V][3], float fnormals[MAX_V][3], float vnormals[MAX_V][3], int listname) {
     FILE * idf;
-    FILE* files[3];
+    int nvert, noused;
     char s[10];
-    float a,b,c;
-    int nface,nvert,noused;
-    int* face;
     float* vert;
+    float a,b,c;
+    int i, nrighe;
     float *fnormal, *vnormal;
-
-    for( i=0 ; i<MAX_V ; i++ )
-    {
-        for( j=0 ; j<3 ; j++ )
-        {
-            fnormals[i][j] = 0.0f;
-            vnormals[i][j] = 0.0f;
-        }
-    }
+    int* face;
+//    faces / nface / fnormals / vnormals / vertices
 
     //apertura del file *.m
     printf("Apertura del file...\n");
-    const char* FILENAME = "../data/pig.m";
-
 
 #ifdef WIN32
     if ((idf = fopen( FILENAME, "r")) == NULL)
 #else
-    if ((idf = fopen( FILENAME, "r")) == NULL ||
-        ( files[0] = fopen( "../data/pig.m", "r") == NULL ) ||
-        ( files[1] = fopen( "../data/cow.m", "r") == NULL )
-    )
+    if ((idf = fopen( FILENAME, "r")) == NULL )
 #endif
     {
-        perror("file non trovato\n");
+        perror("file non trovato/i\n");
         exit (1);
     }
 
-    i=0;
     nface=0;
     nvert=0;
 
@@ -536,25 +533,23 @@ void init()
         }
     }
 
-    nrighe=nvert+nface;
-    nface=nface-1;
-    printf("Chiusura del file...Vertices %d Faces %d -> %d\n",nvert,nface,nrighe);
+    nrighe = nvert + nface;
+    nface--;
+    printf("Chiusura del file...Vertices %d Faces %d -> %d\n",nvert, nface,nrighe);
     fclose(idf);
 
     // Finito di leggere il file, faccio la media
-    for ( int k = 0 ; k < nvert ; k++ ) {
-        v3dMul(vnormals[k], 1.0f / (float) vnormalcounts[k], vnormals[k]);
-        vnormalcounts[k] = 0;
+    for ( i = 0 ; i < nvert ; i++ ) {
+        v3dMul(vnormals[i], 1.0f / (float) vnormalcounts[i], vnormals[i]);
+        vnormalcounts[i] = 0;
     }
-
 
     // crea la display list mesh
     printf("Creazione display list .. \n");
-    listname=glGenLists(1);  //ID della lista e' listname
     glNewList(listname,GL_COMPILE);
 
-    for( i = 0; i < nface; i++ )
-    {
+    int ids[3], ii;
+    for( i = 0; i < nface; i++ ) {
         ids[2] = faces[i][0];
         ids[1] = faces[i][1];
         ids[0] = faces[i][2];
@@ -572,7 +567,36 @@ void init()
         glEnd();
     }
 
+//    glTranslatef(100.0f, 100.0f, 100.0f);
+//    glPopMatrix();
     glEndList();
+}
+
+void init() {
+    int 	faces   [MAX_P][MAX_V][3];    /* faces */
+    float 	vertices[MAX_P][MAX_V][3]; /* vertices */
+    float 	vnormals[MAX_P][MAX_V][3]; /* vertex normals */
+    float   fnormals[MAX_P][MAX_V][3]; /* face normals */
+    int     nfaces  [MAX_P];
+
+    int p, i, j;
+
+
+    listname=glGenLists(MAX_P);  //ID della lista e' listname
+
+    for ( p=0; p < MAX_P ; p++ ) {
+        for( i=0 ; i<MAX_V ; i++ ) {
+            for( j=0 ; j<3 ; j++ ) {
+                fnormals[p][i][j] = 0.0f;
+                vnormals[p][i][j] = 0.0f;
+            }
+        }
+    }
+
+    for ( p=0 ; p < MAX_P ; p++ ) {
+        readFile(pnames[p], faces[p], nfaces[p], vertices[p], fnormals[p], vnormals[p], listname + p);
+    }
+
 
     // TODO: crea la display list quadrica
     myReusableQuadric = gluNewQuadric();
@@ -585,19 +609,16 @@ void init()
 
     glClearColor( 1.0, 1.0, 1.0, 1.0 );
 
-    /*
-    glEnable (GL_POINT_SMOOTH);
-    glEnable (GL_LINE_SMOOTH);
-    glHint (GL_POINT_SMOOTH_HINT, GL_NICEST);	// Make round points, not square points
-    glHint (GL_LINE_SMOOTH_HINT, GL_NICEST);	// Antialias the lines
-    glEnable (GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    */
+//    glEnable (GL_POINT_SMOOTH);
+//    glEnable (GL_LINE_SMOOTH);
+//    glHint (GL_POINT_SMOOTH_HINT, GL_NICEST);	// Make round points, not square points
+//    glHint (GL_LINE_SMOOTH_HINT, GL_NICEST);	// Antialias the lines
+//    glEnable (GL_BLEND);
+//    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 }
 
-void print_sys_status()
-{
+void print_sys_status() {
     system("clear");
     printf("\nSystem status\n\n");
     printf("---------------------------------------------------\n");
@@ -625,53 +646,43 @@ void print_sys_status()
     printf("---------------------------------------------------\n");
 }
 
-void menu(int sel)
-{
+void menu(int sel) {
     //enum Modes oldMode = mode;
     //mode = sel;
 
-    if( sel == MODE_CHANGE_EYE_POS || sel == MODE_CHANGE_REFERENCE_POS || sel == MODE_CHANGE_UP_POS || sel == MODE_CHANGE_LIGHT_POS || sel == MODE_ROTATE_OBJECT )
+    if( sel == MODE_CHANGE_EYE_POS || sel == MODE_CHANGE_REFERENCE_POS || sel == MODE_CHANGE_UP_POS || sel == MODE_CHANGE_LIGHT_POS || sel == MODE_ROTATE_OBJECT || sel == MODE_TRANSLATE_OBJECT || sel == MODE_FLOAT_AROUND ) {}
         mode = sel;
 
-    if(sel == MODE_CHANGE_CULLING)
-    {
+    if(sel == MODE_CHANGE_CULLING) {
         cull = !cull;
         (cull ? glEnable : glDisable)(GL_CULL_FACE);
     }
-    if(sel == MODE_CHANGE_WIREFRAME)
-    {
+    if(sel == MODE_CHANGE_WIREFRAME) {
         wireframe = !wireframe;
     }
-    if(sel == MODE_CHANGE_PROJECTION)
-    {
+    if(sel == MODE_CHANGE_PROJECTION) {
         orpro = !orpro;
     }
-    if(sel == MODE_CHANGE_SHADING)
-    {
+    if(sel == MODE_CHANGE_SHADING) {
         shading = !shading;
     }
-    if( sel == MODE_CHANGE_MATERIAL )
-    {
+    if( sel == MODE_CHANGE_MATERIAL ) {
         mater = (mater+1)%4;
     }
-    if(sel == MODE_RESET)
-    {
+    if(sel == MODE_RESET) {
         reset();
     }
-    if(sel == MODE_QUIT)
-    {
+    if(sel == MODE_QUIT) {
         exit(0);
     }
-    if(sel == MODE_PRINT_SYSTEM_STATUS)
-    {
+    if(sel == MODE_PRINT_SYSTEM_STATUS) {
         print_sys_status();
     }
 
     glutPostRedisplay();
 }
 
-int main (int argc, char** argv)
-{
+int main (int argc, char** argv) {
     glutInit(&argc,argv);
     glutInitDisplayMode( GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE );
     glutInitWindowSize( WindowWidth, WindowHeight );
@@ -690,25 +701,30 @@ int main (int argc, char** argv)
 
     glutCreateMenu(menu);
     glutAddMenuEntry("Menu",-1); //-1 significa che non si vuole gestire questa riga
-    glutAddMenuEntry("",-1);
-    glutAddMenuEntry("Change eye point (use x,y,z,X,Y,Z)", MODE_CHANGE_EYE_POS);
-    glutAddMenuEntry("Change reference point (use x,y,z,X,Y,Z)", MODE_CHANGE_REFERENCE_POS);
-    glutAddMenuEntry("Change up vector (use x,y,z,X,Y,Z)", MODE_CHANGE_UP_POS);
-    glutAddMenuEntry("Change light position (use x,y,z,X,Y,Z)", MODE_CHANGE_LIGHT_POS);
-    glutAddMenuEntry("Zoom (use v,V)", MODE_CHANGE_ZOOM);
-    glutAddMenuEntry("**Rotate Object (use x,y,z,X,Y,Z)", MODE_ROTATE_OBJECT );
+    glutAddMenuEntry("Press 0(WCS) to select the world or 1-3(OCS) to select an object",-1);
+    glutAddMenuEntry("-----------------------------------------------------",-1);
+    glutAddMenuEntry("   Change Eye Point (x,y,z,X,Y,Z)", MODE_CHANGE_EYE_POS);
+    glutAddMenuEntry("   Change Reference Point (x,y,z,X,Y,Z)", MODE_CHANGE_REFERENCE_POS);
+    glutAddMenuEntry("   Change Up Vector (x,y,z,X,Y,Z)", MODE_CHANGE_UP_POS);
+    glutAddMenuEntry("   Change Light Position (x,y,z,X,Y,Z)", MODE_CHANGE_LIGHT_POS);
+    glutAddMenuEntry("   Zoom (v,V)", MODE_CHANGE_ZOOM);
+    glutAddMenuEntry("**   Float Around Objects", MODE_FLOAT_AROUND);
 
     glutAddMenuEntry("",-1);
-    glutAddMenuEntry("Culling", MODE_CHANGE_CULLING);
-    glutAddMenuEntry("Wireframe", MODE_CHANGE_WIREFRAME);
-    glutAddMenuEntry("**Ortographic or Prospective", MODE_CHANGE_PROJECTION);
-    glutAddMenuEntry("Shading", MODE_CHANGE_SHADING);
-    glutAddMenuEntry("Material", MODE_CHANGE_MATERIAL);
+    glutAddMenuEntry("   Translate Objects (x,y,z,X,Y,Z)", MODE_TRANSLATE_OBJECT );
+    glutAddMenuEntry("   Rotate Objects (x,y,z,X,Y,Z)", MODE_ROTATE_OBJECT );
 
     glutAddMenuEntry("",-1);
-    glutAddMenuEntry("Print system status", MODE_PRINT_SYSTEM_STATUS);
-    glutAddMenuEntry("Reset", MODE_RESET);
-    glutAddMenuEntry("Quit", MODE_QUIT);
+    glutAddMenuEntry("   Culling", MODE_CHANGE_CULLING);
+    glutAddMenuEntry("   Wireframe", MODE_CHANGE_WIREFRAME);
+    glutAddMenuEntry("   Ortographic or Prospective", MODE_CHANGE_PROJECTION);
+    glutAddMenuEntry("   Shading", MODE_CHANGE_SHADING);
+    glutAddMenuEntry("   Material", MODE_CHANGE_MATERIAL);
+
+    glutAddMenuEntry("",-1);
+    glutAddMenuEntry("   Print system status", MODE_PRINT_SYSTEM_STATUS);
+    glutAddMenuEntry("   Reset", MODE_RESET);
+    glutAddMenuEntry("   Quit", MODE_QUIT);
 
     glutAttachMenu(GLUT_RIGHT_BUTTON);
 
@@ -718,5 +734,4 @@ int main (int argc, char** argv)
     glutMainLoop();
 
     return -1;
-
 }
