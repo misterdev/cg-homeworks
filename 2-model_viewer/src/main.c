@@ -20,6 +20,8 @@ sono primitive GLU e mesh poligonali in formato *.m
 #include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
+#include <string.h>
+#include "main.h"
 
 #if defined(__APPLE__) || defined(MACOSX)
 #include <GLUT/glut.h>
@@ -33,12 +35,20 @@ sono primitive GLU e mesh poligonali in formato *.m
 #define MAX_P 3     // max number of figures allowed in the program
 #define M_PI 3.141592653589793
 
+float tbRotationMatrix[16] = { 1.0f, 0.0f, 0.0f, 0.0f,
+                               0.0f, 1.0f, 0.0f, 0.0f,
+                               0.0f, 0.0f, 1.0f, 0.0f,
+                               0.0f, 0.0f, 0.0f, 1.0f };
+int tbUpdateMatrix = 0;
+float pVCS[MAX_P+1][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
+
 int 	listname;
 int  	wireframe; // controls the visualization of primitives via glPolygonMode
 int     orpro;     // controls the type of projection via gluPerspective and glOrtho
 int     cull;      // toggles backface culling via glEnable( GL_CULL_FACE ) and glDisable( GL_CULL_FACE );
 int     mater;     // controls the material associated with the model via glMaterial
 int     shading;   // controls the shading model via glShadeModel
+int     cameraMotion; // controls the motion
 
 GLfloat fovy;                       // angolo del punto di vista
 GLfloat angle[3];                   // rotazione degli assi WCS
@@ -70,8 +80,10 @@ float tbAngle = 0.0;
 float tbAxis[3];
 
 int tbDragging = 0;
-float tbV[3];
 float tbW[3];
+float tbV[3];
+
+float timer = 0.0f; // Camera Motion Timer
 
 enum Modes {
     MODE_INVALID,
@@ -79,25 +91,25 @@ enum Modes {
     MODE_CHANGE_REFERENCE_POS,
     MODE_CHANGE_UP_POS,
     MODE_CHANGE_LIGHT_POS,
-    MODE_CHANGE_ZOOM,
+    MODE_CHANGE_ZOOM, //5
     MODE_ROTATE_OBJECT,
     MODE_FLOAT_AROUND,
 
     MODE_CHANGE_CULLING,
     MODE_CHANGE_WIREFRAME,
-    MODE_CHANGE_SHADING,
+    MODE_CHANGE_SHADING, //10
     MODE_CHANGE_PROJECTION,
     MODE_CHANGE_MATERIAL,
 
     MODE_TRANSLATE_OBJECT,
     MODE_TRANSLATE_WCS,
-    MODE_ROTATE_WCS,
+    MODE_ROTATE_WCS, // 15
     MODE_TRANSLATE_OCS,
     MODE_ROTATE_OCS,
     MODE_TRANSLATE_VCS,
     MODE_ROTATE_VCS,
 
-    MODE_PRINT_SYSTEM_STATUS,
+    MODE_PRINT_SYSTEM_STATUS, //20
     MODE_RESET,
     MODE_QUIT
 };
@@ -154,10 +166,10 @@ void computePointOnTrackball( int x, int y, float p[3] ) {
     p[0] = (2.0f * x - WindowWidth)  / WindowWidth;
     p[1] = (WindowHeight - 2.0f * y) / WindowHeight;
 
-    zTemp = 1.0f - (p[0]*p[0]) - (p[1]*p[1]);
+    zTemp = 1.0f - (p[0] * p[0]) - (p[1] * p[1]);
     p[2] = (zTemp > 0.0f ) ? sqrt(zTemp) : 0.0;
 
-    //printf( "p = (%.2f, %.2f, %.2f)\n", p[0], p[1], p[2] );
+//    printf( "p = (%.2f, %.2f, %.2f)\n", p[0], p[1], p[2] );
 }
 
 void zoom( int direction ) {
@@ -179,37 +191,35 @@ void zoom( int direction ) {
 }
 
 void mouse( int button, int state, int x, int y ) {
-    if( button==GLUT_LEFT_BUTTON && state==GLUT_DOWN ) {
-        tbDragging = 1;
+    if( button==GLUT_LEFT_BUTTON && state  == GLUT_DOWN ) {
         computePointOnTrackball( x, y, tbV );
     }
     if( button==GLUT_LEFT_BUTTON && state==GLUT_UP ) {
-        tbDragging = 0;
+        if(tbDragging) {
+            tbDragging = 0;
+            tbUpdateMatrix = 1;
+            glutPostRedisplay();
+        }
     }
 }
 
 void motion( int x, int y ) {
     float dx, dy, dz;
 
+    tbDragging = 1;
+
     computePointOnTrackball(x, y, tbW);
     if(tbDragging) {
-        dx = tbV[0] - tbW[0];
-        dy = tbV[1] - tbW[1];
-        dz = tbV[2] - tbW[2];
+        dx = tbW[0] - tbV[0];
+        dy = tbW[1] - tbV[1];
+        dz = tbW[2] - tbV[2];
         if (dx || dy || dz) {
             tbAngle = sqrt(dx * dx + dy * dy + dz * dz) * (180.0 / M_PI);
-            tbAxis[0] = tbW[1]*tbV[2] - tbW[2]*tbV[1];
-            tbAxis[1] = tbW[2]*tbV[0] - tbW[0]*tbV[2];
-            tbAxis[2] = tbW[0]*tbV[1] - tbW[1]*tbV[0];
-//            if(tbAxis < 0) m = -1;
-//            tbAngle += m * tbAngle2;
-//            if(tbAngle>360) tbAngle = tbAngle - (360 * (int)(tbAngle/360));
+            tbAxis[0] = tbV[1]*tbW[2] - tbV[2]*tbW[1];
+            tbAxis[1] = tbV[2]*tbW[0] - tbV[0]*tbW[2];
+            tbAxis[2] = tbV[0]*tbW[1] - tbV[1]*tbW[0];
+//            printf("%f , %f %f %f\n", tbAngle,tbAxis[0], tbAxis[1], tbAxis[2]);
         }
-//        printf( "tbAxis = %.2f %.2f %.2f tbAngle= %.2f tbAngle2= %.2f \n\n", tbAxis[0], tbAxis[1], tbAxis[2], tbAngle, tbAngle2);
-//        printf( "tbAngle = |||| %.2f ||||| tbAngle2 = %.2f \n", tbAngle, tbAngle2);
-//        tbAngle += tbAngle2;
-//        printf( "tbAngle = %.2f tbAngle2 = %.2f \n\n", tbAngle, tbAngle2);
-//        y=1 se > doestra se < sinistra
     }
 
     glutPostRedisplay();
@@ -227,6 +237,9 @@ void keyboard (unsigned char key, int x, int y) {
     float* pos = NULL;
     float step;
 
+    printf("MODE: ");
+    printf("%d \n", mode);
+
     if ( mode == MODE_CHANGE_EYE_POS ) {
         pos = camE;
         step = 0.5;
@@ -235,7 +248,7 @@ void keyboard (unsigned char key, int x, int y) {
         step = 0.1;
     } else if( mode == MODE_CHANGE_UP_POS ) {
         pos = camU;
-        step = 0.1;
+        step = 1.0;
     } else if( mode == MODE_CHANGE_LIGHT_POS ) {
         pos = lightPos;
         step = 1.0;
@@ -250,6 +263,9 @@ void keyboard (unsigned char key, int x, int y) {
 
     if( pos != NULL )
     {
+        printf(" %c", key);
+        printf("\n");
+
         if( key == 'x' )
             pos[0] += step;
         else if( key == 'X' )
@@ -307,113 +323,6 @@ void drawGluSlantCylinderWithCaps( double height, double radiusBase, double radi
 
 }
 
-void display() {
-    if (mater==0) { // ottone
-        glLightfv(GL_LIGHT0, GL_AMBIENT, brass_ambient);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, brass_diffuse);
-        glMaterialfv(GL_FRONT, GL_SPECULAR, brass_specular);
-        glMaterialfv(GL_FRONT, GL_SHININESS, brass_shininess);
-    }
-    if (mater==1) { // plastica rossa
-        glLightfv(GL_LIGHT0, GL_AMBIENT, red_plastic_ambient);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, red_plastic_diffuse);
-        glMaterialfv(GL_FRONT, GL_SPECULAR, red_plastic_specular);
-        glMaterialfv(GL_FRONT, GL_SHININESS, red_plastic_shininess);
-    }
-    if (mater==2) { // smeraldo
-        glLightfv(GL_LIGHT0, GL_AMBIENT, emerald_ambient);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, emerald_diffuse);
-        glMaterialfv(GL_FRONT, GL_SPECULAR, emerald_specular);
-        glMaterialfv(GL_FRONT, GL_SHININESS, emerald_shininess);
-    }
-    if (mater==3) { // slate
-        glLightfv(GL_LIGHT0, GL_AMBIENT, slate_ambient);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, slate_diffuse);
-        glMaterialfv(GL_FRONT, GL_SPECULAR, slate_specular);
-        glMaterialfv(GL_FRONT, GL_SHININESS, slate_shininess);
-    }
-
-    glClear( GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT );
-    if ( wireframe )
-        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-    else
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL ); // per riempire la facce
-
-    if ( shading )
-        glShadeModel (GL_SMOOTH);
-    else
-        glShadeModel (GL_FLAT);
-
-    glLightfv( GL_LIGHT0, GL_POSITION, lightPos );
-    glEnable( GL_LIGHTING );
-    glEnable( GL_LIGHT0 );
-
-
-    glMatrixMode( GL_PROJECTION );
-
-    glLoadIdentity ();
-
-    if (orpro)
-        gluPerspective( fovy, aspect, 1, 100);
-    else
-        glOrtho(-2.5f, 2.5f, -2.5f, 2.5f, 11.0f, 100.0f);
-
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    // matrice TV di vista
-    gluLookAt( camE[0], camE[1], camE[2], camC[0], camC[1], camC[2], camU[0], camU[1], camU[2] );
-
-    // Trackball rotation. - viene messa per prima perche' verra' usata per ultima
-//    printf("TRACKBALL, %.2f %.2f %.2f %.2f\n", tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
-
-    glRotatef(tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
-
-    glLineWidth(2);
-    drawAxis( 2.0, 1 );
-    glLineWidth(1);
-
-    glTranslatef( pTranslations[MAX_P][0], pTranslations[MAX_P][1], pTranslations[MAX_P][2]);
-    glRotatef( pRotations[MAX_P][0], 1.0, 0.0, 0.0 );
-    glRotatef( pRotations[MAX_P][1], 0.0, 1.0, 0.0 );
-    glRotatef( pRotations[MAX_P][2], 0.0, 0.0, 1.0 );
-    glScalef( pScales[MAX_P], pScales[MAX_P], pScales[MAX_P] );
-
-    //draw the mesh modelxx
-    drawAxis( 1.0, 0 );
-    for ( int p=0 ; p < MAX_P ; p++ ) {
-        glPushMatrix();
-        glTranslated(pTranslations[p][0], pTranslations[p][1], pTranslations[p][2]);
-        glScalef( pScales[p], pScales[p], pScales[p] );
-        glRotatef( pRotations[p][0], 1.0, 0.0, 0.0);
-        glRotatef( pRotations[p][1], 0.0, 1.0, 0.0);
-        glRotatef( pRotations[p][2], 0.0, 0.0, 1.0);
-        glCallList(listname+p);
-        glPopMatrix();
-    }
-
-
-
-    //Draw some quadrics
-//	gluSphere(myReusableQuadric, 1.0, 12, 12);
-
-//    glTranslated(0.0, 0.0, 1.5);
-//    gluCylinder(myReusableQuadric, 0.5, 0.2, 0.5, 12, 12);
-
-    //gluDisk(myReusableQuadric, 0.5, 1.0, 10, 10);
-    //gluPartialDisk( myReusableQuadric, 0.5, 1.0, 10, 10, 0.0, 45.0);
-    //drawGluSlantCylinderWithCaps( 2.0, 1.0, 0.4, 8, 8 );
-
-//  glutWireIcosahedron();
-//	glutWireDodecahedron();
-//  glutWireTeapot(1.0);
-//	glutWireTorus(0.5, 1.0, 10, 10);
-//	glutWireCone(1.0, 1.0, 10, 10);
-
-    glutSwapBuffers();
-}
-
 void reset() {
 //    angle[0] = 0.0;
 //    angle[1] = 0.0;
@@ -421,6 +330,7 @@ void reset() {
     pTranslations[MAX_P][0] = 0.0;
     pTranslations[MAX_P][1] = 0.0;
     pTranslations[MAX_P][2] = 0.0;
+    // TODO protations
 
     camE[0] = 8.8;
     camE[1] = 4.9;
@@ -440,19 +350,18 @@ void reset() {
     lightPos[3] =  1.0;
 
     fovy = 20;
-    wireframe = 1;
+    wireframe = 0;
     cull = 0;
     mater = 1;
     orpro = 1;
     shading = 0;
+    cameraMotion = -1; // nobody
 
     glutPositionWindow(10,10);
     glutReshapeWindow(700,700);
     glutPostRedisplay();
 
 }
-// piu modelli
-// glPushMatrix(), glPopMatrix().
 
 void readFile (const char* FILENAME, int faces[MAX_V][3], int nface, float vertices[MAX_V][3], float fnormals[MAX_V][3], float vnormals[MAX_V][3], int listname) {
     FILE * idf;
@@ -572,6 +481,25 @@ void readFile (const char* FILENAME, int faces[MAX_V][3], int nface, float verti
     glEndList();
 }
 
+void floatAround ( float t ) {
+//    x = r cos(t)    y = r sin(t)
+    float x = 10.0f * (float) cos(t);
+    float z = 10.0f * (float) sin(t);
+    camE[0] = x;
+    camE[2] = z;
+//    printf("%f x=%f z=%f \n", t, camE[0], camE[2]);
+    glutPostRedisplay();
+}
+
+void idle () {
+    if ( cameraMotion >= 0 ) {
+        timer += 0.01f;
+        if(timer > 2 * M_PI)
+            timer = 0.0f;
+        floatAround(timer);
+    }
+}
+
 void init() {
     int 	faces   [MAX_P][MAX_V][3];    /* faces */
     float 	vertices[MAX_P][MAX_V][3]; /* vertices */
@@ -650,7 +578,7 @@ void menu(int sel) {
     //enum Modes oldMode = mode;
     //mode = sel;
 
-    if( sel == MODE_CHANGE_EYE_POS || sel == MODE_CHANGE_REFERENCE_POS || sel == MODE_CHANGE_UP_POS || sel == MODE_CHANGE_LIGHT_POS || sel == MODE_ROTATE_OBJECT || sel == MODE_TRANSLATE_OBJECT || sel == MODE_FLOAT_AROUND ) {}
+    if( sel == MODE_CHANGE_EYE_POS || sel == MODE_CHANGE_REFERENCE_POS || sel == MODE_CHANGE_UP_POS || sel == MODE_CHANGE_LIGHT_POS || sel == MODE_ROTATE_OBJECT || sel == MODE_TRANSLATE_OBJECT )
         mode = sel;
 
     if(sel == MODE_CHANGE_CULLING) {
@@ -666,7 +594,11 @@ void menu(int sel) {
     if(sel == MODE_CHANGE_SHADING) {
         shading = !shading;
     }
+    if (sel == MODE_FLOAT_AROUND) {
+        cameraMotion = (cameraMotion >= 0 ? -1 : 0 );
+    }
     if( sel == MODE_CHANGE_MATERIAL ) {
+        pVCS[0][0] = 90.0;
         mater = (mater+1)%4;
     }
     if(sel == MODE_RESET) {
@@ -675,11 +607,202 @@ void menu(int sel) {
     if(sel == MODE_QUIT) {
         exit(0);
     }
-    if(sel == MODE_PRINT_SYSTEM_STATUS) {
+    if (sel == MODE_PRINT_SYSTEM_STATUS) {
         print_sys_status();
     }
 
+    createMenu();
     glutPostRedisplay();
+}
+
+void createMenu () {
+    char *prompt;
+    glutCreateMenu(menu);
+    glutAddMenuEntry("Menu",-1); //-1 significa che non si vuole gestire questa riga
+    glutAddMenuEntry("Press 0(WCS) to select the world or 1-3(OCS) to select an object",-1);
+    glutAddMenuEntry("Press v,V to  Zoom", MODE_CHANGE_ZOOM);
+    glutAddMenuEntry("-----------------------------------------------------",-1);
+
+    prompt = ( mode == MODE_CHANGE_EYE_POS ) ? "[X]  Change Eye Point (x,y,z,X,Y,Z)" : "(  )  Change Eye Point (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_CHANGE_EYE_POS);
+
+    prompt = ( mode == MODE_CHANGE_REFERENCE_POS ) ? "(X)  Change Reference Point (x,y,z,X,Y,Z)" : "(  )  Change Reference Point (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_CHANGE_REFERENCE_POS);
+
+    prompt = ( mode == MODE_CHANGE_UP_POS ) ? "(X)  Change Up Vector (x,y,z,X,Y,Z)" : "(  )  Change Up Vector (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_CHANGE_UP_POS);
+
+    prompt = ( mode == MODE_CHANGE_LIGHT_POS ) ? "(X)  Change Light Position (x,y,z,X,Y,Z)" : "(  )  Change Light Position (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_CHANGE_LIGHT_POS);
+
+    prompt = ( mode == MODE_TRANSLATE_OBJECT ) ? "(X)  Translate Objects (x,y,z,X,Y,Z)" : "(  )  Translate Objects (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_TRANSLATE_OBJECT);
+    prompt = ( mode == MODE_ROTATE_OBJECT ) ? "(X)  Rotate Objects (x,y,z,X,Y,Z)" : "(  )  Rotate Objects (x,y,z,X,Y,Z)";
+    glutAddMenuEntry(prompt, MODE_ROTATE_OBJECT);
+    glutAddMenuEntry("",-1);
+
+    prompt = ( mode == MODE_CHANGE_WIREFRAME ) ? "(  ) Wireframe" : "(X) Wireframe";
+    glutAddMenuEntry(prompt, MODE_CHANGE_WIREFRAME);
+
+    prompt = ( mode == MODE_CHANGE_SHADING ) ? "(X) Shading" : "(  ) Shading";
+    glutAddMenuEntry(prompt, MODE_CHANGE_SHADING);
+
+    prompt = ( mode == MODE_CHANGE_CULLING ) ? "(X) Culling" : "(  ) Culling";
+    glutAddMenuEntry(prompt, MODE_CHANGE_CULLING);
+    glutAddMenuEntry("",-1);
+
+    prompt = ( orpro ) ? "(X) Perspective" : "(  ) Perspective";
+    glutAddMenuEntry(prompt, MODE_CHANGE_PROJECTION);
+
+    prompt = ( !orpro ) ? "(X) Ortographic" : "(  ) Ortographic";
+    glutAddMenuEntry(prompt, MODE_CHANGE_PROJECTION);
+    glutAddMenuEntry("",-1);
+
+    prompt = ( cameraMotion >= 0 ) ? "[X] Camera Motion" : "[  ] Camera Motion";
+    glutAddMenuEntry(prompt, MODE_FLOAT_AROUND);
+    prompt = "      Change Material";
+    glutAddMenuEntry(prompt, MODE_CHANGE_MATERIAL);
+
+    glutAddMenuEntry("",-1);
+    glutAddMenuEntry("   Print system status", MODE_PRINT_SYSTEM_STATUS);
+    glutAddMenuEntry("   Reset", MODE_RESET);
+    glutAddMenuEntry("   Quit", MODE_QUIT);
+
+    glutAttachMenu(GLUT_RIGHT_BUTTON);
+}
+
+void display() {
+    if (mater==0) { // ottone
+        glLightfv(GL_LIGHT0, GL_AMBIENT, brass_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, brass_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, brass_specular);
+        glMaterialfv(GL_FRONT, GL_SHININESS, brass_shininess);
+    }
+    if (mater==1) { // plastica rossa
+        glLightfv(GL_LIGHT0, GL_AMBIENT, red_plastic_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, red_plastic_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, red_plastic_specular);
+        glMaterialfv(GL_FRONT, GL_SHININESS, red_plastic_shininess);
+    }
+    if (mater==2) { // smeraldo
+        glLightfv(GL_LIGHT0, GL_AMBIENT, emerald_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, emerald_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, emerald_specular);
+        glMaterialfv(GL_FRONT, GL_SHININESS, emerald_shininess);
+    }
+    if (mater==3) { // slate
+        glLightfv(GL_LIGHT0, GL_AMBIENT, slate_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, slate_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, slate_specular);
+        glMaterialfv(GL_FRONT, GL_SHININESS, slate_shininess);
+    }
+
+    glClear( GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT );
+    if ( wireframe )
+        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+    else
+        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL ); // per riempire la facce
+
+    if ( shading )
+        glShadeModel (GL_SMOOTH);
+    else
+        glShadeModel (GL_FLAT);
+
+    glLightfv( GL_LIGHT0, GL_POSITION, lightPos );
+    glEnable( GL_LIGHTING );
+    glEnable( GL_LIGHT0 );
+
+
+    glMatrixMode( GL_PROJECTION );
+
+    glLoadIdentity ();
+
+    if (orpro)
+        gluPerspective( fovy, aspect, 1, 100);
+    else
+        glOrtho(-2.5f, 2.5f, -2.5f, 2.5f, 11.0f, 100.0f);
+
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // matrice TV di vista
+    gluLookAt( camE[0], camE[1], camE[2], camC[0], camC[1], camC[2], camU[0], camU[1], camU[2] );
+
+    // Trackball rotation. - viene messa per prima perche' verra' usata per ultima
+//    printf("TRACKBALL %d, %.2f %.2f %.2f %.2f\n", tbUpdateMatrix, tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
+
+
+    glLineWidth(1);
+
+    glMultMatrixf(tbRotationMatrix);
+    glRotatef( pRotations[MAX_P][0], 1.0, 0.0, 0.0);
+    glRotatef( pRotations[MAX_P][1], 0.0, 1.0, 0.0);
+    glRotatef( pRotations[MAX_P][2], 0.0, 0.0, 1.0);
+//    printf("%f %f %f \n", pRotations[MAX_P][0], pRotations[MAX_P][1], pRotations[MAX_P][2]);
+    glRotatef(tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
+
+    glTranslated(pTranslations[MAX_P][0], pTranslations[MAX_P][1], pTranslations[MAX_P][2]);
+
+    if (tbUpdateMatrix) {
+        glPushMatrix();
+        glLoadMatrixf(tbRotationMatrix);
+        glRotatef(tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
+        glGetFloatv(GL_MODELVIEW_MATRIX, tbRotationMatrix);
+        glPopMatrix();
+
+        tbUpdateMatrix = 0;
+        tbAngle = 0.0;
+        tbAxis[0] = 0.0;
+        tbAxis[1] = 0.0;
+        tbAxis[1] = 0.0;
+    }
+
+
+    drawAxis( 2.0, 2 );
+
+    for ( int p=0 ; p < MAX_P ; p++ ) {
+        glPushMatrix();
+        glTranslated(pTranslations[p][0], pTranslations[p][1], pTranslations[p][2]);
+        //draw the mesh modelxx
+        drawAxis( 0.5, 0 );
+        glScalef( pScales[p], pScales[p], pScales[p] );
+        glRotatef( pRotations[p][0], 1.0, 0.0, 0.0);
+        glRotatef( pRotations[p][1], 0.0, 1.0, 0.0);
+        glRotatef( pRotations[p][2], 0.0, 0.0, 1.0);
+
+        glPushMatrix();
+        glRotatef( pVCS[p][0], 1.0, 0.0, 0.0);
+        glRotatef( pVCS[p][1], 0.0, 1.0, 0.0);
+        glRotatef( pVCS[p][2], 0.0, 0.0, 1.0);
+
+
+        glCallList(listname+p);
+
+        glPopMatrix();
+
+        glPopMatrix();
+    }
+
+
+
+    //Draw some quadrics
+//    gluSphere(myReusableQuadric, 1.0, 12, 12);
+
+//    glTranslated(0.0, 0.0, 1.5);
+//    gluCylinder(myReusableQuadric, 0.5, 0.2, 0.5, 12, 12);
+
+    //gluDisk(myReusableQuadric, 0.5, 1.0, 10, 10);
+    //gluPartialDisk( myReusableQuadric, 0.5, 1.0, 10, 10, 0.0, 45.0);
+    //drawGluSlantCylinderWithCaps( 2.0, 1.0, 0.4, 8, 8 );
+
+//  glutWireIcosahedron();
+//	glutWireDodecahedron();
+//  glutWireTeapot(1.0);
+//	glutWireTorus(0.5, 1.0, 10, 10);
+//	glutWireCone(1.0, 1.0, 10, 10);
+
+    glutSwapBuffers();
 }
 
 int main (int argc, char** argv) {
@@ -698,39 +821,12 @@ int main (int argc, char** argv) {
     glutMouseFunc(mouse); // pressione e rilascio
     glutMotionFunc(motion);
     glutPassiveMotionFunc(passiveMotion);
-
-    glutCreateMenu(menu);
-    glutAddMenuEntry("Menu",-1); //-1 significa che non si vuole gestire questa riga
-    glutAddMenuEntry("Press 0(WCS) to select the world or 1-3(OCS) to select an object",-1);
-    glutAddMenuEntry("-----------------------------------------------------",-1);
-    glutAddMenuEntry("   Change Eye Point (x,y,z,X,Y,Z)", MODE_CHANGE_EYE_POS);
-    glutAddMenuEntry("   Change Reference Point (x,y,z,X,Y,Z)", MODE_CHANGE_REFERENCE_POS);
-    glutAddMenuEntry("   Change Up Vector (x,y,z,X,Y,Z)", MODE_CHANGE_UP_POS);
-    glutAddMenuEntry("   Change Light Position (x,y,z,X,Y,Z)", MODE_CHANGE_LIGHT_POS);
-    glutAddMenuEntry("   Zoom (v,V)", MODE_CHANGE_ZOOM);
-    glutAddMenuEntry("**   Float Around Objects", MODE_FLOAT_AROUND);
-
-    glutAddMenuEntry("",-1);
-    glutAddMenuEntry("   Translate Objects (x,y,z,X,Y,Z)", MODE_TRANSLATE_OBJECT );
-    glutAddMenuEntry("   Rotate Objects (x,y,z,X,Y,Z)", MODE_ROTATE_OBJECT );
-
-    glutAddMenuEntry("",-1);
-    glutAddMenuEntry("   Culling", MODE_CHANGE_CULLING);
-    glutAddMenuEntry("   Wireframe", MODE_CHANGE_WIREFRAME);
-    glutAddMenuEntry("   Ortographic or Prospective", MODE_CHANGE_PROJECTION);
-    glutAddMenuEntry("   Shading", MODE_CHANGE_SHADING);
-    glutAddMenuEntry("   Material", MODE_CHANGE_MATERIAL);
-
-    glutAddMenuEntry("",-1);
-    glutAddMenuEntry("   Print system status", MODE_PRINT_SYSTEM_STATUS);
-    glutAddMenuEntry("   Reset", MODE_RESET);
-    glutAddMenuEntry("   Quit", MODE_QUIT);
-
-    glutAttachMenu(GLUT_RIGHT_BUTTON);
+    glutIdleFunc(idle);
 
     reset();
     init();
 
+    createMenu();
     glutMainLoop();
 
     return -1;

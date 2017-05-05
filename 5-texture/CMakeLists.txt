@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
-project(3_blender)
+project(5-texture)
 
 set(CMAKE_C_STANDARD 90)
 
@@ -30,9 +30,10 @@ ADD_DEFINITIONS(-Wno-deprecated-declarations)
 
 set(SOURCE_FILES
         src/main.c
-        src/evalSpline.c
-        src/evalSpline.h)
+        src/main.h
+        src/RgbImage.c
+        src/RgbImage.h)
 
-add_executable(3_blender ${SOURCE_FILES})
+add_executable(5-texture ${SOURCE_FILES})
 
-target_link_libraries(3_blender ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
+target_link_libraries(5-texture ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
