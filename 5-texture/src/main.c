@@ -44,6 +44,7 @@
 
 #if defined(__APPLE__) || defined(MACOSX)
 #include <GLUT/glut.h>
+//#include <GL/glext.h> // environment mapping cubico
 #else
 #include <GL/freeglut.h>
 #endif
@@ -85,6 +86,7 @@ int QuadMode = 1;				// Quad/Triangle toggling
 GLenum LocalMode = GL_TRUE;		// Local viewer/non-local viewer mode
 int Light0Flag = 1;				// Is light #0 on?
 int Light1Flag = 1;				// Is light #1 on?
+int textureMode = 1;            // 1: 2d mapping -- 2: 2d procedural mapping -- 3: spheric -- 4:cubic
 
 // Lighting values
 float ambientLight[4] = {0.6, 0.6, 0.6, 1.0};
@@ -108,11 +110,23 @@ const char* filenameArray[4] = {
         "../textures/WoodGrain.bmp",
         "../textures/LightningTexture.bmp",
         "../textures/IvyTexture.bmp",
-        "../textures/RedLeavesTexture.bmp"
+        "../textures/Reflect.bmp"
+};
+
+const char* cubicFilenameArray[6] = {
+        "../textures/posx2.bmp",
+        "../textures/negx2.bmp",
+        "../textures/posy2.bmp",
+        "../textures/negy2.bmp",
+        "../textures/posz2.bmp",
+        "../textures/negz2.bmp",
 };
 
 static GLuint textureName[4];
+static GLuint cubicTextures;
+static GLuint texturesFaces[6];
 static GLuint checkerTexture;
+static GLuint myCheckerTexture;
 
 // glutKeyboardFunc is called below to set this function to handle
 //		all "normal" key presses.
@@ -139,6 +153,9 @@ void keyboard( unsigned char key, int x, int y ) {
                     break;
             }
 
+            break;
+        case 't':
+            textureMode = (textureMode+1) % 4;
             break;
         case 'a':
             runMode = !runMode;
@@ -368,8 +385,7 @@ void putVert(int i, int j) {
     // the normal is the cross product of the partial derivatives
     glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
 
-    // TODO: assign texture coordinates
-
+    glTexCoord2f(sintheta*r, MinorRadius*sinphi);
     // place the vertex
     glVertex3f(sintheta*r, MinorRadius*sinphi, costheta*r);
 }
@@ -505,6 +521,30 @@ void display( void ) {
             break;
         case MODE_TORUS:
             // Draw the torus
+
+            switch(textureMode) {
+                case 1:
+                    glEnable(GL_TEXTURE_2D);
+                    glBindTexture(GL_TEXTURE_2D, textureName[0]);
+                    break;
+                case 2:
+                    glEnable(GL_TEXTURE_2D);
+                    glBindTexture(GL_TEXTURE_2D, myCheckerTexture);
+                    break;
+                case 3:
+                    glEnable(GL_TEXTURE_2D);
+                    glEnable(GL_TEXTURE_GEN_S);
+                    glEnable(GL_TEXTURE_GEN_T);
+                    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+                    glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+                    glBindTexture(GL_TEXTURE_2D, textureName[3]);
+                    break;
+                case 4:
+
+//                    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+                    break;
+            }
+
             glColor3f( 1.0, 0.5, 1.0 );
 
             // draw the torus as NumWraps strips one next to the other
@@ -529,6 +569,10 @@ void display( void ) {
             glVertex3f( -0.5, 0.0, sqrt(3.0)*0.5 );
             glVertex3f( -0.5, 0.0, -sqrt(3.0)*0.5 );
             glEnd();
+
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_TEXTURE_GEN_S);
+            glDisable(GL_TEXTURE_GEN_T);
 
             break;
         case MODE_QUADS:
@@ -634,20 +678,41 @@ void loadTextureFromFile( const char *filename) {
  */
 void initFour( const char* filenames[] ) {
     int i;
-    glGenTextures( 4, textureName );	// Load four texture names into array
+    glGenTextures( 4, textureName );	// Load four texture names into array //- genero 4 id
     for ( i=0; i<4; i++ ) {
-        glBindTexture(GL_TEXTURE_2D, textureName[i]);	// Texture #i is active now
+        glBindTexture(GL_TEXTURE_2D, textureName[i]);	// Texture #i is active now //- carico da file
         loadTextureFromFile( filenames[i] );			// Load texture #i
     }
 }
 
+void initCubic( const char* filenames[] ) {
+//    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    glGenTextures(1, &cubicTextures);
+
+    for(GLuint i = 0; i < 6; i++) {
+        glBindTexture(GL_TEXTURE_2D, texturesFaces[i]);	// Texture #i is active now //- carico da file
+        loadTextureFromFile( filenames[i] );			// Load texture #i
+
+        glTexImage2D(
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, &texturesFaces[i]
+        );
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
 
 void initCheckerTextures() {
     GLubyte image[64][64][3];
     int i,  j, c;
 
-    glGenTextures( 1, &checkerTexture );
-    glBindTexture(GL_TEXTURE_2D, checkerTexture);
+    glGenTextures( 1, &checkerTexture );  //- assegno id e tipo alla texture
+    glBindTexture(GL_TEXTURE_2D, checkerTexture); //- inizializzazione per spostarla in memoria
 
     for(i=0;i<64;i++) {
         for(j=0;j<64;j++) {
@@ -658,7 +723,33 @@ void initCheckerTextures() {
         }
     }
 
-    glTexImage2D(GL_TEXTURE_2D,0,3,64,64,0,GL_RGB,GL_UNSIGNED_BYTE, image);
+    glTexImage2D(GL_TEXTURE_2D,0,3,64,64,0,GL_RGB,GL_UNSIGNED_BYTE, image); //- sposta cio' che hai creato (image) in memoria
+
+    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+
+}
+
+void initMyCheckerTextures() {
+    GLubyte image[64][64][3];
+    int i,  j, c;
+
+    glGenTextures( 1, &myCheckerTexture );  //- assegno id e tipo alla texture
+    glBindTexture(GL_TEXTURE_2D, myCheckerTexture); //- inizializzazione per spostarla in memoria
+
+    for(i=0;i<64;i++) {
+        for(j=0;j<64;j++) {
+//            c = ( ( ( ( i & 0x8 ) == 0 ) ^ ( ( ( j & 0x8 ) ) == 0 ) ) ) * 255;
+            c = ( ( i-j > 5 || i-j < -5 ) + 0.5) * 127.5;
+            image[i][j][0]= (GLubyte) c/3;
+            image[i][j][1]= (GLubyte) c;
+            image[i][j][2]= (GLubyte) c/2;
+        }
+    }
+
+    glTexImage2D(GL_TEXTURE_2D,0,3,64,64,0,GL_RGB,GL_UNSIGNED_BYTE, image); //- sposta cio' che hai creato (image) in memoria
 
     glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
     glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
@@ -675,15 +766,18 @@ int main( int argc, char** argv ) {
 
     // Window position (from top corner), and size (width and hieght)
     glutInitWindowPosition( 10, 60 );
-    glutInitWindowSize( 620, 160 );
+    glutInitWindowSize( 620, 620 );
     glutCreateWindow( "Light Torus demo" );
 
     // Initialize OpenGL rendering modes
     initRendering();
 
     // Initialize textures
-    initCheckerTextures();
-    initFour(filenameArray);
+    //- il caricamento texture nella memoria texture in gpu avviene solo all'inizio
+    initCheckerTextures(); //- checker per texture procedurale
+    initMyCheckerTextures();
+    initFour(filenameArray); //- checker su bitmap
+    initCubic(cubicFilenameArray); //- checker su bitmap
 
     reshape(620,160);
 
