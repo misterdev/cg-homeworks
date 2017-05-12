@@ -51,7 +51,7 @@ void RgbImageSize(RgbImage* image, int numRows, int numCols )
  *  Author: Sam Buss December 2001.
  **********************************************************************/
 
-bool LoadBmpFile(RgbImage* image, const char* filename ) 
+bool LoadBmpFile(RgbImage* image, const char* filename )
 {  
 	FILE* infile = fopen( filename, "rb" );		// Open for reading binary data
 	bool fileFormatOK = false;
@@ -369,7 +369,7 @@ void RgbImageInit(RgbImage* image)
 	image->ErrorCode = 0;
 }
 
-bool RgbImageInitFile(RgbImage* image, const char* filename )
+bool RgbImageInitFile(RgbImage *image, const char* filename )
 {
 	image->NumRows = 0;
 	image->NumCols = 0;

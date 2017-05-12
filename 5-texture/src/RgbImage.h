@@ -38,7 +38,7 @@ struct RgbImage {
 typedef struct RgbImage RgbImage;
 
 void RgbImageInit(RgbImage* image);
-bool RgbImageInitFile(RgbImage* image, const char* filename );
+bool RgbImageInitFile(RgbImage *image, const char* filename );
 void RgbImageInitSize(RgbImage* image, int numRows, int numCols );	// Initialize a blank bitmap of this size.
 void RgbImageDelete(RgbImage* image);
 

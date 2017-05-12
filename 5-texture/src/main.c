@@ -63,8 +63,8 @@ enum AppMode appMode = MODE_TORUS;
 
 GLenum runMode = GL_TRUE;
 
-GLenum shadeModel = GL_FLAT;		// Toggles between GL_FLAT and GL_SMOOTH
-GLenum polygonMode = GL_LINE;		// Toggles between GL_LINE and GL_FILL
+GLenum shadeModel = GL_SMOOTH;		// Toggles between GL_FLAT and GL_SMOOTH
+GLenum polygonMode = GL_FILL;		// Toggles between GL_LINE and GL_FILL
 
 // Variables controlling the animation
 float RotX = 0.0f;					// Rotational position around x-axis
@@ -74,8 +74,8 @@ float RotIncrementY = 0.00;			// Rotational increment, y-axis
 const float RotIncFactor = 1.5;	// Factor change in rot rate per key stroke
 
 // Variables controlling the fineness of the polygonal mesh
-int NumWraps = 10;
-int NumPerWrap = 8;
+int NumWraps = 30;
+int NumPerWrap = 20;
 
 // Variables controlling the size of the torus
 float MajorRadius = 3.0;
@@ -86,7 +86,7 @@ int QuadMode = 1;				// Quad/Triangle toggling
 GLenum LocalMode = GL_TRUE;		// Local viewer/non-local viewer mode
 int Light0Flag = 1;				// Is light #0 on?
 int Light1Flag = 1;				// Is light #1 on?
-int textureMode = 1;            // 1: 2d mapping -- 2: 2d procedural mapping -- 3: spheric -- 4:cubic
+int textureMode = 3;            // 0: 2d mapping -- 1: 2d procedural mapping -- 2: spheric -- 3:cubic 4: bump
 
 // Lighting values
 float ambientLight[4] = {0.6, 0.6, 0.6, 1.0};
@@ -112,7 +112,15 @@ const char* filenameArray[4] = {
         "../textures/IvyTexture.bmp",
         "../textures/Reflect.bmp"
 };
-
+//"up","lf","ft","rt","bk","dn"
+//const char* cubicFilenameArray[6] = {
+//        "../textures/criminal-impact_up.bmp",
+//        "../textures/criminal-impact_lf.bmp",
+//        "../textures/criminal-impact_ft.bmp",
+//        "../textures/criminal-impact_rt.bmp",
+//        "../textures/criminal-impact_bk.bmp",
+//        "../textures/criminal-impact_dn.bmp",
+//};
 const char* cubicFilenameArray[6] = {
         "../textures/posx2.bmp",
         "../textures/negx2.bmp",
@@ -121,8 +129,13 @@ const char* cubicFilenameArray[6] = {
         "../textures/posz2.bmp",
         "../textures/negz2.bmp",
 };
+const char* bumpFilenameArray[2] = {
+        "../textures/stone_wall.bmp",
+        "../textures/stone_wall_normal_map.bmp"
+};
 
 static GLuint textureName[4];
+static GLuint bumpingTextures[2];
 static GLuint cubicTextures;
 static GLuint texturesFaces[6];
 static GLuint checkerTexture;
@@ -155,7 +168,7 @@ void keyboard( unsigned char key, int x, int y ) {
 
             break;
         case 't':
-            textureMode = (textureMode+1) % 4;
+            textureMode = (textureMode+1) % 5;
             break;
         case 'a':
             runMode = !runMode;
@@ -382,10 +395,19 @@ void putVert(int i, int j) {
     float costheta = cos(theta);
     float r = MajorRadius + MinorRadius*cosphi;
 
+    float rand = 0;
     // the normal is the cross product of the partial derivatives
-    glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
+//    glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
 
-    glTexCoord2f(sintheta*r, MinorRadius*sinphi);
+    if( textureMode == 4 && (i-j < 5 && i-j > -5) ) {
+//        printf("%d %d - %f %f %f\n", i, j, sintheta*cosphi, sinphi, costheta*cosphi);
+        glNormal3f(-1,-1,-1);
+    } else {
+        glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
+    }
+
+
+        glTexCoord2f(sintheta*r, MinorRadius*sinphi);
     // place the vertex
     glVertex3f(sintheta*r, MinorRadius*sinphi, costheta*r);
 }
@@ -517,31 +539,42 @@ void display( void ) {
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
             glScalef(2.0, 2.0, 2.0);
             colorcube();
-            glDisable(GL_TEXTURE_2D);
+
             break;
         case MODE_TORUS:
             // Draw the torus
 
             switch(textureMode) {
-                case 1:
+                case 0:
                     glEnable(GL_TEXTURE_2D);
                     glBindTexture(GL_TEXTURE_2D, textureName[0]);
                     break;
-                case 2:
+                case 1:
                     glEnable(GL_TEXTURE_2D);
                     glBindTexture(GL_TEXTURE_2D, myCheckerTexture);
                     break;
-                case 3:
+                case 2:
                     glEnable(GL_TEXTURE_2D);
                     glEnable(GL_TEXTURE_GEN_S);
                     glEnable(GL_TEXTURE_GEN_T);
+                    glBindTexture(GL_TEXTURE_2D, textureName[3]);
                     glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
                     glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
-                    glBindTexture(GL_TEXTURE_2D, textureName[3]);
+                    break;
+                case 3:
+                    glEnable(GL_TEXTURE_CUBE_MAP);
+                    glBindTexture(GL_TEXTURE_CUBE_MAP, cubicTextures);
+                    glTexGenf(GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);
+                    glTexGenf(GL_T, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);
+                    glTexGenf(GL_R, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP);
+                    glEnable(GL_TEXTURE_GEN_S);
+                    glEnable(GL_TEXTURE_GEN_T);
+                    glEnable(GL_TEXTURE_GEN_R);
                     break;
                 case 4:
-
-//                    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+                    glEnable(GL_TEXTURE_2D);
+                    glBindTexture(GL_TEXTURE_2D, bumpingTextures[1]);
+//                    bumpingTextures
                     break;
             }
 
@@ -557,7 +590,7 @@ void display( void ) {
                 glEnd();
             }
 
-            // Draw the reference pyramid
+//             Draw the reference pyramid
             glTranslatef( -MajorRadius-MinorRadius-0.3, 0.0, 0.0);
             glScalef( 0.2f, 0.2f, 0.2f );
             glColor3f( 1.0f, 1.0f, 0.0f );
@@ -570,9 +603,19 @@ void display( void ) {
             glVertex3f( -0.5, 0.0, -sqrt(3.0)*0.5 );
             glEnd();
 
-            glDisable(GL_TEXTURE_2D);
-            glDisable(GL_TEXTURE_GEN_S);
-            glDisable(GL_TEXTURE_GEN_T);
+
+            if(textureMode == 3) {
+                glDisable(GL_TEXTURE_CUBE_MAP);
+                glDisable(GL_TEXTURE_GEN_S);
+                glDisable(GL_TEXTURE_GEN_T);
+                glDisable(GL_TEXTURE_GEN_R);
+            } else if(textureMode == 2) {
+                glDisable(GL_TEXTURE_2D);
+                glDisable(GL_TEXTURE_GEN_S);
+                glDisable(GL_TEXTURE_GEN_T);
+            } else {
+                glDisable(GL_TEXTURE_2D);
+            }
 
             break;
         case MODE_QUADS:
@@ -599,10 +642,8 @@ void display( void ) {
             drawTextureQuad ( 3 );
             glPopMatrix();
 
-            glDisable(GL_TEXTURE_2D);
             break;
     }
-
 
     glPopMatrix();
 
@@ -685,26 +726,85 @@ void initFour( const char* filenames[] ) {
     }
 }
 
+
 void initCubic( const char* filenames[] ) {
-//    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+        RgbImage image;
 
-    glGenTextures(1, &cubicTextures);
+        glGenTextures(1, &cubicTextures);
+        glActiveTexture(GL_TEXTURE0);
 
-    for(GLuint i = 0; i < 6; i++) {
-        glBindTexture(GL_TEXTURE_2D, texturesFaces[i]);	// Texture #i is active now //- carico da file
-        loadTextureFromFile( filenames[i] );			// Load texture #i
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubicTextures);
+        for(GLuint i = 0; i < 6; i++) {
+            RgbImageInitFile(&image, filenames[i]);
+            glTexImage2D(
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
+                    GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ImagePtr
+            );
+        }
+        glTexParameteri(GL_TEXTURE_CUBE_MAP,GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP,GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP,GL_TEXTURE_WRAP_R,GL_CLAMP_TO_EDGE);
+}
 
+
+void initBump ( const char* filenames[] ) {
+    RgbImage image;
+
+    int i, r, c;
+    glGenTextures( 2, bumpingTextures );	// Load four texture names into array //- genero 4 id
+    glActiveTexture(GL_TEXTURE0);
+//    for ( i=0; i<2; i++ ) {
+        glBindTexture(GL_TEXTURE_2D, bumpingTextures[1]);	// Texture #i is active now //- carico da file
+        RgbImageInitFile(&image, filenames[1]);
         glTexImage2D(
-                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, &texturesFaces[i]
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
+                GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ImagePtr
         );
-    }
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+//    }
+//    image->NumRows*GetNumBytesPerRow(image)
+    i = 0;
+//
+//    float rr, gg, bb;
+//    for( r=0; r < image.NumRows; r++ ) {
+//        for( c=0; c < image.NumCols; c++ ) {
+//            rr = image.ImagePtr[i] / 255.0f;
+//            gg = image.ImagePtr[i+1] / 255.0f;
+//            bb = image.ImagePtr[i+2] / 255.0f;
+//            printf("%d (%f,%f,%f) ", i, rr, gg, bb);
+//            i += 3;
+//        }
+//        printf("\n");
+//    }
+//    printf("ooooooo ---- %d - %d", r, c);
+
+
+////////
+//    GLubyte image[64][64][3];
+//    int i,  j, c;
+//
+//    glGenTextures( 1, &myCheckerTexture );  //- assegno id e tipo alla texture
+//    glBindTexture(GL_TEXTURE_2D, myCheckerTexture); //- inizializzazione per spostarla in memoria
+//
+//    for(i=0;i<64;i++) {
+//        for(j=0;j<64;j++) {
+////            c = ( ( ( ( i & 0x8 ) == 0 ) ^ ( ( ( j & 0x8 ) ) == 0 ) ) ) * 255;
+//            c = ( ( i-j > 5 || i-j < -5 ) + 0.5) * 127.5;
+//            image[i][j][0]= (GLubyte) c/3;
+//            image[i][j][1]= (GLubyte) c;
+//            image[i][j][2]= (GLubyte) c/2;
+//        }
+//    }
+//
+//    glTexImage2D(GL_TEXTURE_2D,0,3,64,64,0,GL_RGB,GL_UNSIGNED_BYTE, image); //- sposta cio' che hai creato (image) in memoria
+//
+//    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+//    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+//    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+//    glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
 }
 
 void initCheckerTextures() {
@@ -778,6 +878,7 @@ int main( int argc, char** argv ) {
     initMyCheckerTextures();
     initFour(filenameArray); //- checker su bitmap
     initCubic(cubicFilenameArray); //- checker su bitmap
+    initBump(bumpFilenameArray); // con bumping
 
     reshape(620,160);
 
