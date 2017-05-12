@@ -1,13 +1,3 @@
-
-// MIO
-// program = initShader("v.glsl", "f.glsl");
-// timeParam = glGetUniformLocation(program, "time"); // time param = nome nel programma || time = nome nello shader
-// amplitude = glGetUniformLocation(program, "A");
-// frequency = glGetUniformLocation(program, "omega");
-
-// glUniform1f(amplitude, 0.1);
-// gluniform1f(frequency, 0.001);
-
 /* sets up flat mesh */
 /* sets up elapsed time parameter for use by shaders */
 /* vertex shader varies height of mesh sinusoidally */
@@ -22,8 +12,13 @@ GLint timeParam;
 GLint amplitude;
 GLint frequency;
 
-static void init()
-{
+int aIndex = -1;
+int fIndex = -1;
+
+float aValues[3] = {0.05, 0.1, 0.2};
+float fValues[3] = {0.0005, 0.001, 0.002};
+
+static void init() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glColor3f(0.0, 0.0, 0.0);
 
@@ -36,25 +31,25 @@ static void init()
     #endif
     program = initShader("../src/v.glsl", "../src/f.glsl");
 
-    /* ----------- ADD ------------------ 
-    glGetUniformLocation of time, amplitude and frequency
-// qui li chiamo in un modo e li passo al vertex shader v.glsl
-// la tabella la riempo durante l'animazione
-    set the values via glUniform1f
-    */
+
+    // qui li chiamo in un modo e li passo al vertex shader v.glsl
+    // la tabella la riempo durante l'animazione
+    timeParam = glGetUniformLocation(program, "time"); // time param = nome nel programma || time = nome nello shader
+    amplitude = glGetUniformLocation(program, "A");
+    frequency = glGetUniformLocation(program, "omega");
+
+    glUniform1f(amplitude, 0.1);
+    glUniform1f(frequency, 0.001);
 }
 
 
-void mesh()
-{
+void mesh() {
     int i,j;
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(2.0, 2.0, 2.0, 0.5, 0.0, 0.5, 0.0, 1.0, 0.0);
-    for(i=0; i<N; i++)
-    {
-        for(j=0; j<N;j++)
-        {
+    for(i=0; i<N; i++) {
+        for(j=0; j<N;j++) {
             glColor3ub(50,109,164);
             glBegin(GL_QUADS);
                 glVertex3f((float)i/N, 0.0, (float)j/N);
@@ -74,13 +69,9 @@ void mesh()
     }
 }
 
-static void draw(void)
-{
-    /* ----------- ADD ------------------ 
-        send elapsed time to shaders
-glUniform1f(timeParam, glutGet(GLUT_ELAPSED_TIME))
-        to get the elpased time, use glutGet(GLUT_ELAPSED_TIME)
-    */
+static void draw(void) {
+    // send elapsed time to shaders
+    glUniform1f(timeParam, glutGet(GLUT_ELAPSED_TIME));
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     mesh();
@@ -89,15 +80,18 @@ glUniform1f(timeParam, glutGet(GLUT_ELAPSED_TIME))
     glutPostRedisplay();
 }
 
-void mouse(int button, int state, int x, int y)
-{
-    /* ----------- ADD ------------------ 
-        add functionality for left and right button
-        left    -- randomly change aplitude through values [0.05; 0.1; 0.2].
-        right   -- randomly change frequency through values [0.0005; 0.001; 0.002].
-
-    */
-    // TODO modifica freq e amplitude
+void mouse(int button, int state, int x, int y) {
+    // left    -- randomly change aplitude through values [0.05; 0.1; 0.2].
+    if( button == GLUT_LEFT_BUTTON && state  == GLUT_UP ) {
+        aIndex = (aIndex+1)%3;
+        glUniform1f(amplitude, aValues[aIndex]);
+    }
+    // right   -- randomly change frequency through values [0.0005; 0.001; 0.002].
+    if( button == GLUT_RIGHT_BUTTON && state == GLUT_UP ) {
+        printf("%d \n", fIndex);
+        fIndex = (fIndex+1)%3;
+        glUniform1f(frequency, fValues[fIndex]);
+    }
 }
 
 int main(int argc, char** argv)
