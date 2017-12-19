@@ -28,7 +28,7 @@ endif(NOT OPENGL_FOUND)
 set(CMAKE_WARN_DEPRECATED FALSE)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
 
-set(SOURCE_FILES src/main.c)
+set(SOURCE_FILES src/main.c src/main.h)
 add_executable(1-bezier ${SOURCE_FILES})
 
 target_link_libraries(1-bezier ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})

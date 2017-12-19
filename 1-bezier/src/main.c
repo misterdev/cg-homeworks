@@ -12,6 +12,8 @@
  *	 Press escape to exit.
  */
 
+#include "main.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -20,29 +22,234 @@
 #include <GLUT/glut.h>
 #else
 #include <GL/freeglut.h>
-//	#include <GL/glut.h>
 #endif
 
-#define MAX_CV 64
 
-/* prototypes */
-void removeFirstPoint ();
-void removeLastPoint ();
-void addNewPoint (float x, float y);
+#define MAX_CV 64               // Max number of control points
+#define DIM 3                   // Point dimension (x, y, z)
 
-/* global variables */
-float CV[MAX_CV][3];
-int numCV = 0;
 
-// Window size in pixels
-int WindowHeight;
-int WindowWidth;
+float CV[MAX_CV][DIM];          // Control points
+int numCV = 0;                  // Number of control points
+int WindowHeight, WindowWidth;  // Window size in pixels
+int clickedPoint;               // Clicked point to drag
 
-// clicked point - to drag
-int clickedPoint;
 
-/* function definitions */
 
+/**********************
+ *     POINT UTILS
+ **********************/
+
+/*
+ * Calculate the distance between points
+ * @param p1 - point 1
+ * @param p2 - point 2
+ */
+float point2pointDistance(float p1[DIM], float p2[DIM]) {
+    return sqrtf(powf(p1[0] - p2[0], 2) + powf(p1[1] - p2[1], 2));
+}
+
+/*
+ * Evaulate the distance of a point from a line
+ * @param p0 - point
+ * @param p1, p2 - extremity of segment
+ */
+float point2LineDistance(float p0[DIM], float p1[DIM], float p2[DIM]) {
+    return fabsf(
+            ( (p2[0] - p1[0]) * (p1[1] - p0[1]) ) // (x2 - x1) * (y1 - y0)
+            - ( (p1[0] - p0[0] ) * (p2[1] - p1[1]) ) // - (x1 - x0) * (p2 - p1)
+    ) / point2pointDistance(p1, p2);
+}
+
+/*
+ * Adds a new point at the end of the list
+ * removes the first point if there are too many points
+ * @param x - x position of the new point
+ * @param y - y position of the new point
+ */
+void addNewPoint (float x, float y) {
+    if (numCV >= MAX_CV)
+        removeFirstPoint ();
+
+    CV[numCV][0] = x;
+    CV[numCV][1] = y;
+    CV[numCV][2] = 0;
+    numCV++;
+}
+
+/*
+ * Removes the first control point
+ */
+void removeFirstPoint () {
+    int i;
+    if (numCV > 0) {
+        // Remove the first point, slide the rest down
+        numCV--;
+        for (i = 0; i < numCV; i++) {
+            CV[i][0] = CV[i + 1][0];
+            CV[i][1] = CV[i + 1][1];
+        }
+    }
+}
+
+/*
+ * Remove last control point
+ */
+void removeLastPoint () {
+    if (numCV > 0)
+        numCV--;
+}
+
+
+/*
+ * Get the nearest point in click range
+ * @return index of the nearest point in range
+ */
+int getPointInRange ( float x, float y ) {
+    int near;
+    double lowerDistance;
+    double r;
+    double distance;
+
+    near = -1;
+    r = 0.05;
+    lowerDistance = sqrt(pow (x - CV[0][0], 2.0 ) + pow (y - CV[0][1], 2.0 ) );
+    if( lowerDistance <= r ) near = 0;
+
+    for ( int i = 1 ; i < numCV ; i++ ) {
+        distance = sqrt(pow ( x - CV[i][0], 2.0 ) + pow ( y - CV[i][1], 2.0 ) );
+        if ( distance <= r && distance <= lowerDistance ) {
+            near = i;
+            lowerDistance = distance;
+        }
+    }
+
+    return near;
+}
+
+/*
+ * Moves a control point
+ * @param i - index of the control point
+ * @param x - x mouse's coordinate
+ * @param y - y moouse's coordinate
+ */
+void movePoint ( int i, int x, int y ) {
+    float xPos;
+    float yPos;
+
+    yPos = ((float) y) / ((float) (WindowHeight - 1));
+    xPos = ((float) x) / ((float) (WindowWidth - 1));
+    yPos = 1.0f - yPos;			   // Flip value since y position is from top row.
+
+    CV[i][0] = xPos;
+    CV[i][1] = yPos;
+    glutPostRedisplay ();
+}
+
+
+
+/**********************
+ *     ALGORITHMS
+ **********************/
+
+/*
+ * Draws a bezier curve using OpenGL evaluators
+ */
+void drawBezier () {
+    int i;
+    glEnable(GL_MAP1_VERTEX_3);
+    glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, &CV[0][0]);
+
+    glBegin(GL_LINE_STRIP);
+    for ( i = 0; i <= 100; i++) {
+//        glEvalCoord1d( (GLdouble) (i / 100.0));
+        decasteljaus( (float) (i / 100.0));
+    }
+    glEnd();
+    glDisable(GL_MAP1_VERTEX_3);
+}
+
+/*
+ * Decasteljaus evaluatore
+ * @param t - evaluate the curve in t (range 0-1)
+ */
+void decasteljaus (float t) {
+    float temp[numCV][DIM];
+    int i;
+
+    for (i = 0; i < numCV; i++) {
+        assignToPoint(temp[i], CV[i]);
+    }
+
+    for (i = 1; i < numCV; i++) {
+        for (int j = 0; j < numCV - i; j++) {
+            lerp(temp[j], temp[j + 1], t, temp[j]);
+        }
+    }
+
+    glVertex3f (temp[0][0], temp[0][1], temp[0][2]);
+}
+
+
+/*
+ * Adaptive subdivision algorithm
+ * @param cps - curve control points
+ * @param tolerance - degree of smoothness
+ */
+void adaptiveSubdivision(float cps[MAX_CV][DIM], float tolerance) {
+    int i, j;
+    float temp[numCV][DIM];
+    float curve1[numCV][DIM];
+    float curve2[numCV][DIM];
+    bool canApproxLine = true;
+
+    // Calculates the distance of every CP from the line between
+    // the first CP and the last CP
+    for (i = 1; i < numCV - 1; i++) {
+        if(point2LineDistance(cps[i], cps[0], cps[numCV - 1]) > tolerance) {
+            canApproxLine = false;
+        }
+    }
+
+    // Draw the line if it can be approximated
+    if(canApproxLine == true) {
+        glVertex3f(cps[0][0], cps[0][1], cps[0][2]);
+        glVertex3f(cps[numCV - 1][0], cps[numCV - 1][1], cps[numCV - 1][2]);
+    } else {
+
+        for (i = 0; i < numCV; i++) {
+            assignToPoint(temp[i], cps[i]);
+        }
+
+        assignToPoint(curve1[0], temp[0]);
+        assignToPoint(curve2[numCV - 1], temp[numCV - 1]);
+
+        // Otherwise evaluate the point in 0.5
+        for (i = 1; i < numCV; i++) {
+            for (j = 0; j < numCV - i; j++) {
+                lerp(temp[j], temp[j+1], 0.5f, temp[j]);
+            }
+            assignToPoint(curve1[i], temp[0]);
+            assignToPoint(curve2[numCV - i - 1], temp[numCV - i - 1]);
+        }
+
+        // Recursive call on the 2 sub curves
+        adaptiveSubdivision(curve1, tolerance);
+        adaptiveSubdivision(curve2, tolerance);
+    }
+
+}
+
+
+
+/**********************
+ *      HANDLERS
+ **********************/
+
+/*
+ * Handles keyboard events
+ * @param key - key pressed code
+ */
 void keyboard (unsigned char key, int x, int y) {
     switch (key) {
         case 'f':
@@ -59,55 +266,13 @@ void keyboard (unsigned char key, int x, int y) {
     }
 }
 
-void removeFirstPoint () {
-    int i;
-    if (numCV > 0) {
-        // Remove the first point, slide the rest down
-        numCV--;
-        for (i = 0; i < numCV; i++) {
-            CV[i][0] = CV[i + 1][0];
-            CV[i][1] = CV[i + 1][1];
-        }
-    }
-}
-
-int getPointInRange ( float x, float y ) {
-    int near;
-    double lowerDistance;
-    double r;
-    double distance;
-
-    near = -1;
-    r = 0.1;
-    lowerDistance = sqrt(pow (x - CV[0][0], 2.0 ) + pow (y - CV[0][1], 2.0 ) );
-    if( lowerDistance <= r ) near = 0;
-
-    for ( int i = 1 ; i < numCV ; i++ ) {
-        distance = sqrt(pow ( x - CV[i][0], 2.0 ) + pow ( y - CV[i][1], 2.0 ) );
-        if ( distance <= r && distance <= lowerDistance ) {
-            near = i;
-            lowerDistance = distance;
-        }
-    }
-
-    return near;
-}
-
-// MOVES A POINT
-void movePoint ( int i, int x, int y ) {
-    float xPos;
-    float yPos;
-
-    yPos = ((float) y) / ((float) (WindowHeight - 1));
-    xPos = ((float) x) / ((float) (WindowWidth - 1));
-    yPos = 1.0f - yPos;			   // Flip value since y position is from top row.
-
-    CV[i][0] = xPos;
-    CV[i][1] = yPos;
-    glutPostRedisplay ();
-}
-
-// Left button presses place a control point.
+/*
+ * Handles mouse click events
+ * @param button - pressed mouse button code
+ * @param state - pressed mouse button state
+ * @param x - mouse x position
+ * @param y - mouse y position
+ */
 void mouse (int button, int state, int x, int y) {
     float xPos;
     float yPos;
@@ -119,7 +284,6 @@ void mouse (int button, int state, int x, int y) {
     // [NEW] check if point in range
     if( button == GLUT_LEFT_BUTTON && state == GLUT_DOWN ) {
         clickedPoint = getPointInRange( xPos , yPos );
-        printf("%d\n", clickedPoint);
     } else if ( button == GLUT_LEFT_BUTTON && state == GLUT_UP ) {
         if ( clickedPoint >= 0 ) {
             movePoint ( clickedPoint, x, y );
@@ -131,67 +295,26 @@ void mouse (int button, int state, int x, int y) {
     }
 }
 
-// HANDLES MOUSE MOVE WHILE DRAGGING
+/*
+ * Handles mouse move events
+ * @param x - mouse x position
+ * @param y - mouse y position
+ */
 void mousemove (int x, int y) {
     if ( clickedPoint >= 0 ) {
         movePoint ( clickedPoint, x, y );
     }
 }
 
-// Add a new point to the end of the list.
-// Remove the first point in the list if too many points.
-void removeLastPoint () {
-    if (numCV > 0)
-        numCV--;
-}
 
 
-// Add a new point to the end of the list.
-// Remove the first point in the list if too many points.
-void addNewPoint (float x, float y) {
-    if (numCV >= MAX_CV)
-        removeFirstPoint ();
+/**********************
+ *   MAIN FUNCTIONS
+ **********************/
 
-    CV[numCV][0] = x;
-    CV[numCV][1] = y;
-    CV[numCV][2] = 0;
-    numCV++;
-}
-
-void decasteljaus (float t) {
-    float temp[numCV][3];
-    int i;
-
-    for (i = 0; i < numCV; i++) {
-        temp[i][0] = CV[i][0];
-        temp[i][1] = CV[i][1];
-        temp[i][2] = CV[i][2];
-    }
-
-    for (i = 1; i < numCV; i++) {
-        for (int j = 0; j < numCV - i; j++) {
-            temp[j][0] = ( (1-t) * temp[j][0] ) + ( t * temp[j+1][0]);
-            temp[j][1] = ( (1-t) * temp[j][1] ) + ( t * temp[j+1][1]);
-            temp[j][2] = ( (1-t) * temp[j][2] ) + ( t * temp[j+1][2]);
-
-        }
-    }
-    glVertex3f (temp[0][0], temp[0][1], temp[0][2]);
-}
-
-void drawBezier () {
-    int i;
-    glEnable(GL_MAP1_VERTEX_3);
-    glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, &CV[0][0]);
-    glBegin(GL_LINE_STRIP);
-    for ( i = 0; i <= 100; i++) {
-//        glEvalCoord1d( (GLdouble) (i / 100.0));
-        decasteljaus( (float) (i / 100.0));
-    }
-    glEnd();
-    glDisable(GL_MAP1_VERTEX_3);
-}
-
+/*
+ * Display function
+ */
 void display (void) {
     int i;
     glClear (GL_COLOR_BUFFER_BIT);
@@ -210,7 +333,7 @@ void display (void) {
     glDisable (GL_LINE_STIPPLE);
 
     // Draw the interpolated points second.
-    glColor3f (0.0f, 0.0f, 0.0f);	   // Draw points in black
+    glColor3f (0.01f, 0.1f, 1.0f);	   // Draw points in blue
     glBegin (GL_POINTS);
     for (i = 0; i < numCV; i++) {
         glVertex3f (CV[i][0], CV[i][1], CV[i][2]);
@@ -218,17 +341,25 @@ void display (void) {
 
     glEnd ();
 
-    if (numCV > 1) drawBezier();
+//    if(numCV > 1) drawBezier();
+    if(numCV > 1) {
+        glBegin(GL_LINE_STRIP);
+        adaptiveSubdivision(CV, 0.00005f);
+        glEnd();
+    }
 
     glFlush ();
 }
 
+/*
+ * Init function
+ */
 void initRendering () {
     glClearColor (1.0f, 1.0f, 1.0f, 1.0f);
 
     // Make big points and wide lines.  (This may be commented out if desired.)
     glPointSize (8);
-    glLineWidth (1);
+    glLineWidth (0.7);
 
     // The following commands should induce OpenGL to create round points and
     //  antialias points and lines.  (This is implementation dependent unfortunately, and
@@ -242,6 +373,9 @@ void initRendering () {
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+/*
+ * Resize function
+ */
 void reshape (int w, int h) {
     WindowHeight = (h > 1) ? h : 2;
     WindowWidth = (w > 1) ? w : 2;
