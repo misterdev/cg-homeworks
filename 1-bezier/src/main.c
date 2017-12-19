@@ -24,10 +24,8 @@
 #include <GL/freeglut.h>
 #endif
 
-
-#define MAX_CV 64               // Max number of control points
-#define DIM 3                   // Point dimension (x, y, z)
-
+typedef enum { OPENGL, DECASTELJAU, ADAPTIVE } draw_mode;
+draw_mode DRAW_MODE = ADAPTIVE; // EDIT THIS TO CHANGE DRAW MODE
 
 float CV[MAX_CV][DIM];          // Control points
 int numCV = 0;                  // Number of control points
@@ -39,6 +37,30 @@ int clickedPoint;               // Clicked point to drag
 /**********************
  *     POINT UTILS
  **********************/
+
+/*
+ * Copies a point
+ * @param var - destination point
+ * @param value - original point
+ */
+void assignToPoint(float* var, float* value) {
+    var[0] = value[0];
+    var[1] = value[1];
+    var[2] = value[2];
+}
+
+/*
+ * Linear interpolation
+ * @param p1 - first point
+ * @param p2 - second point
+ * @param t - evaluates the curve in t (range 0-1)
+ * @param ret - returned point
+ */
+void lerp( float* p1, float* p2, float t, float* ret) {
+    ret[0] = ( (1-t) * p1[0] ) + ( t * p2[0]);
+    ret[1] = ( (1-t) * p1[1] ) + ( t * p2[1]);
+    ret[2] = ( (1-t) * p1[2] ) + ( t * p2[2]);
+}
 
 /*
  * Calculate the distance between points
@@ -100,7 +122,6 @@ void removeLastPoint () {
         numCV--;
 }
 
-
 /*
  * Get the nearest point in click range
  * @return index of the nearest point in range
@@ -153,27 +174,42 @@ void movePoint ( int i, int x, int y ) {
  **********************/
 
 /*
- * Draws a bezier curve using OpenGL evaluators
+ * Draws a bezier curve
  */
 void drawBezier () {
     int i;
-    glEnable(GL_MAP1_VERTEX_3);
-    glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, &CV[0][0]);
 
-    glBegin(GL_LINE_STRIP);
-    for ( i = 0; i <= 100; i++) {
-//        glEvalCoord1d( (GLdouble) (i / 100.0));
-        decasteljaus( (float) (i / 100.0));
+
+    if(DRAW_MODE == ADAPTIVE) {
+        // DRAW MODE : adaptive
+        glBegin(GL_LINE_STRIP);
+        adaptiveSubdivision(CV, 0.00005f);
+        glEnd();
+    } else {
+        glEnable(GL_MAP1_VERTEX_3);
+        glMap1f(GL_MAP1_VERTEX_3, 0.0, 1.0, 3, numCV, &CV[0][0]);
+
+        glBegin(GL_LINE_STRIP);
+        for ( i = 0; i <= 100; i++) {
+            if(DRAW_MODE == DECASTELJAU) {
+                // DRAW MODE : decasteljau
+                deCasteljau( (float) (i / 100.0));
+            } else {
+                // DRAW MODE : opengl
+                glEvalCoord1d( (GLdouble) (i / 100.0));
+            }
+        }
+        glEnd();
+        glDisable(GL_MAP1_VERTEX_3);
     }
-    glEnd();
-    glDisable(GL_MAP1_VERTEX_3);
+
 }
 
 /*
- * Decasteljaus evaluatore
- * @param t - evaluate the curve in t (range 0-1)
+ * De Casteljau evaluator
+ * @param t - evaluates the curve in t (range 0-1)
  */
-void decasteljaus (float t) {
+void deCasteljau (float t) {
     float temp[numCV][DIM];
     int i;
 
@@ -341,12 +377,7 @@ void display (void) {
 
     glEnd ();
 
-//    if(numCV > 1) drawBezier();
-    if(numCV > 1) {
-        glBegin(GL_LINE_STRIP);
-        adaptiveSubdivision(CV, 0.00005f);
-        glEnd();
-    }
+    if(numCV > 1) drawBezier();
 
     glFlush ();
 }
