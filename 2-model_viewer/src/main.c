@@ -623,7 +623,7 @@ void createMenu () {
     glutAddMenuEntry("Press v,V to  Zoom", MODE_CHANGE_ZOOM);
     glutAddMenuEntry("-----------------------------------------------------",-1);
 
-    prompt = ( mode == MODE_CHANGE_EYE_POS ) ? "[X]  Change Eye Point (x,y,z,X,Y,Z)" : "(  )  Change Eye Point (x,y,z,X,Y,Z)";
+    prompt = ( mode == MODE_CHANGE_EYE_POS ) ? "(X)  Change Eye Point (x,y,z,X,Y,Z)" : "(  )  Change Eye Point (x,y,z,X,Y,Z)";
     glutAddMenuEntry(prompt, MODE_CHANGE_EYE_POS);
 
     prompt = ( mode == MODE_CHANGE_REFERENCE_POS ) ? "(X)  Change Reference Point (x,y,z,X,Y,Z)" : "(  )  Change Reference Point (x,y,z,X,Y,Z)";
@@ -641,13 +641,13 @@ void createMenu () {
     glutAddMenuEntry(prompt, MODE_ROTATE_OBJECT);
     glutAddMenuEntry("",-1);
 
-    prompt = ( mode == MODE_CHANGE_WIREFRAME ) ? "(  ) Wireframe" : "(X) Wireframe";
+    prompt = wireframe ? "(X) Wireframe" : "(  ) Wireframe";
     glutAddMenuEntry(prompt, MODE_CHANGE_WIREFRAME);
 
-    prompt = ( mode == MODE_CHANGE_SHADING ) ? "(X) Shading" : "(  ) Shading";
+    prompt = shading ? "(X) Shading" : "(  ) Shading";
     glutAddMenuEntry(prompt, MODE_CHANGE_SHADING);
 
-    prompt = ( mode == MODE_CHANGE_CULLING ) ? "(X) Culling" : "(  ) Culling";
+    prompt = cull ? "(X) Culling" : "(  ) Culling";
     glutAddMenuEntry(prompt, MODE_CHANGE_CULLING);
     glutAddMenuEntry("",-1);
 
@@ -720,7 +720,7 @@ void display() {
     if (orpro)
         gluPerspective( fovy, aspect, 1, 100);
     else
-        glOrtho(-2.5f, 2.5f, -2.5f, 2.5f, 11.0f, 100.0f);
+        glOrtho(-2.5f, 2.5f, -2.5f, 2.5f, -100.0f, 100.0f);
 
 
     glMatrixMode(GL_MODELVIEW);

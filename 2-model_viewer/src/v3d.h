@@ -1,14 +1,5 @@
-//
-//  v3d.h
-//  Laboratorio1
-//
-//  Created by Devid Farinelli on 24/03/2017.
-//  Copyright © 2017 Devid Farinelli. All rights reserved.
-//
-
 #ifndef V3D_H
 #define V3D_H
-
 
 void v3dSum( const float v1[], const float v2[], float res[] );
 
