@@ -86,7 +86,7 @@ int QuadMode = 1;				// Quad/Triangle toggling
 GLenum LocalMode = GL_TRUE;		// Local viewer/non-local viewer mode
 int Light0Flag = 1;				// Is light #0 on?
 int Light1Flag = 1;				// Is light #1 on?
-int textureMode = 3;            // 0: 2d mapping -- 1: 2d procedural mapping -- 2: spheric -- 3:cubic 4: bump
+int textureMode = 4;            // 0: 2d mapping -- 1: 2d procedural mapping -- 2: spheric -- 3:cubic 4: bump
 
 // Lighting values
 float ambientLight[4] = {0.6, 0.6, 0.6, 1.0};
@@ -106,11 +106,13 @@ float Matspec[4] = {1.0, 1.0, 1.0, 1.0};
 float Matnonspec[4] = {0.4, 0.4, 0.4, 1.0};
 float Matshiny = 16.0;
 
-const char* filenameArray[4] = {
+const char* filenameArray[6] = {
         "../textures/WoodGrain.bmp",
         "../textures/LightningTexture.bmp",
         "../textures/IvyTexture.bmp",
-        "../textures/Reflect.bmp"
+        "../textures/Reflect.bmp",
+        "../textures/brickwall.bmp",
+        "../textures/brickwall_normal.bmp"
 };
 //"up","lf","ft","rt","bk","dn"
 //const char* cubicFilenameArray[6] = {
@@ -130,11 +132,11 @@ const char* cubicFilenameArray[6] = {
         "../textures/negz2.bmp",
 };
 const char* bumpFilenameArray[2] = {
-        "../textures/stone_wall.bmp",
-        "../textures/stone_wall_normal_map.bmp"
+        "../textures/brickwall.bmp",
+        "../textures/brickwall_normal.bmp"
 };
 
-static GLuint textureName[4];
+static GLuint textureName[6];
 static GLuint bumpingTextures[2];
 static GLuint cubicTextures;
 static GLuint texturesFaces[6];
@@ -387,29 +389,20 @@ void NumPerWrapLess() {
  * issue vertex command for segment number j of wrap number i.
  */
 void putVert(int i, int j) {
-    float phi = PI2*j/NumPerWrap;
-    float theta = PI2*i/NumWraps;
+    float phi = PI2 * j / NumPerWrap;
+    float theta = PI2 * i / NumWraps;
     float sinphi = sin(phi);
     float cosphi = cos(phi);
     float sintheta = sin(theta);
     float costheta = cos(theta);
-    float r = MajorRadius + MinorRadius*cosphi;
+    float r = MajorRadius + MinorRadius * cosphi;
 
-    float rand = 0;
     // the normal is the cross product of the partial derivatives
-//    glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
+    glNormal3f( sintheta * cosphi, sinphi, costheta * cosphi );
 
-    if( textureMode == 4 && (i-j < 5 && i-j > -5) ) {
-//        printf("%d %d - %f %f %f\n", i, j, sintheta*cosphi, sinphi, costheta*cosphi);
-        glNormal3f(-1,-1,-1);
-    } else {
-        glNormal3f(sintheta*cosphi, sinphi, costheta*cosphi);
-    }
-
-
-        glTexCoord2f(sintheta*r, MinorRadius*sinphi);
+    glTexCoord2f( sintheta * r, MinorRadius * sinphi );
     // place the vertex
-    glVertex3f(sintheta*r, MinorRadius*sinphi, costheta*r);
+    glVertex3f( sintheta * r, MinorRadius * sinphi, costheta * r );
 }
 
 /*
@@ -421,24 +414,38 @@ void drawTextureQuad( int i ) {
     glScalef(2.0, 2.0, 1.0);
 
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex3f(-1.0, -1.0, 0.0);
-    glTexCoord2f(0.0, 1.0); glVertex3f(-1.0, 1.0, 0.0);
-    glTexCoord2f(1.0, 1.0); glVertex3f(1.0, 1.0, 0.0);
-    glTexCoord2f(1.0, 0.0); glVertex3f(1.0, -1.0, 0.0);
+    glTexCoord2f(0.0, 0.0);
+    glVertex3f(-1.0, -1.0, 0.0);
+    glTexCoord2f(0.0, 1.0);
+    glVertex3f(-1.0, 1.0, 0.0);
+    glTexCoord2f(1.0, 1.0);
+    glVertex3f(1.0, 1.0, 0.0);
+    glTexCoord2f(1.0, 0.0);
+    glVertex3f(1.0, -1.0, 0.0);
     glEnd();
 
 }
+//
+//GLfloat planes[]= {-1.0, 0.0, 1.0, 0.0};
+//GLfloat planet[]= {0.0, -1.0,  0.0, 1.0};
 
-GLfloat planes[]= {-1.0, 0.0, 1.0, 0.0};
-GLfloat planet[]= {0.0, -1.0,  0.0, 1.0};
+GLfloat vertices[][3] = {{-1.0,-1.0,-1.0},
+                         {1.0,-1.0,-1.0},
+                         {1.0,1.0,-1.0},
+                         {-1.0,1.0,-1.0},
+                         {-1.0,-1.0,1.0},
+                         {1.0,-1.0,1.0},
+                         {1.0,1.0,1.0},
+                         {-1.0,1.0,1.0}};
 
-GLfloat vertices[][3] = {{-1.0,-1.0,-1.0},{1.0,-1.0,-1.0},
-                         {1.0,1.0,-1.0}, {-1.0,1.0,-1.0}, {-1.0,-1.0,1.0},
-                         {1.0,-1.0,1.0}, {1.0,1.0,1.0}, {-1.0,1.0,1.0}};
-
-GLfloat colors[][4] = {{0.0,0.0,0.0,0.5},{1.0,0.0,0.0,0.5},
-                       {1.0,1.0,0.0,0.5}, {0.0,1.0,0.0,0.5}, {0.0,0.0,1.0,0.5},
-                       {1.0,0.0,1.0,0.5}, {1.0,1.0,1.0,0.5}, {0.0,1.0,1.0,0.5}};
+GLfloat colors[][4] = {{0.0,0.0,0.0,0.5},
+                       {1.0,0.0,0.0,0.5},
+                       {1.0,1.0,0.0,0.5},
+                       {0.0,1.0,0.0,0.5},
+                       {0.0,0.0,1.0,0.5},
+                       {1.0,0.0,1.0,0.5},
+                       {1.0,1.0,1.0,0.5},
+                       {0.0,1.0,1.0,0.5}};
 
 /* draw a polygon via list of vertices */
 void polygon(int a, int b, int c , int d) {
@@ -547,7 +554,7 @@ void display( void ) {
             switch(textureMode) {
                 case 0:
                     glEnable(GL_TEXTURE_2D);
-                    glBindTexture(GL_TEXTURE_2D, textureName[0]);
+                    glBindTexture(GL_TEXTURE_2D, textureName[4]);
                     break;
                 case 1:
                     glEnable(GL_TEXTURE_2D);
@@ -573,7 +580,7 @@ void display( void ) {
                     break;
                 case 4:
                     glEnable(GL_TEXTURE_2D);
-                    glBindTexture(GL_TEXTURE_2D, bumpingTextures[1]);
+                    glBindTexture(GL_TEXTURE_2D, textureName[4]);
 //                    bumpingTextures
                     break;
             }
@@ -719,8 +726,8 @@ void loadTextureFromFile( const char *filename) {
  */
 void initFour( const char* filenames[] ) {
     int i;
-    glGenTextures( 4, textureName );	// Load four texture names into array //- genero 4 id
-    for ( i=0; i<4; i++ ) {
+    glGenTextures( 6, textureName );	// Load four texture names into array //- genero 4 id
+    for ( i=0; i<6; i++ ) {
         glBindTexture(GL_TEXTURE_2D, textureName[i]);	// Texture #i is active now //- carico da file
         loadTextureFromFile( filenames[i] );			// Load texture #i
     }
@@ -750,23 +757,23 @@ void initCubic( const char* filenames[] ) {
 
 
 void initBump ( const char* filenames[] ) {
-    RgbImage image;
-
-    int i, r, c;
-    glGenTextures( 2, bumpingTextures );	// Load four texture names into array //- genero 4 id
-    glActiveTexture(GL_TEXTURE0);
-//    for ( i=0; i<2; i++ ) {
-        glBindTexture(GL_TEXTURE_2D, bumpingTextures[1]);	// Texture #i is active now //- carico da file
-        RgbImageInitFile(&image, filenames[1]);
-        glTexImage2D(
-                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
-                GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ImagePtr
-        );
+//    RgbImage image;
+//
+//    int i, r, c;
+//    glGenTextures( 2, bumpingTextures );	// Load four texture names into array //- genero 4 id
+//    glActiveTexture(GL_TEXTURE0);
+////    for ( i=0; i<2; i++ ) {
+//        glBindTexture(GL_TEXTURE_2D, bumpingTextures[1]);	// Texture #i is active now //- carico da file
+//        RgbImageInitFile(&image, filenames[1]);
+//        glTexImage2D(
+//                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
+//                GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, image.ImagePtr
+//        );
 
 
 //    }
 //    image->NumRows*GetNumBytesPerRow(image)
-    i = 0;
+//    i = 0;
 //
 //    float rr, gg, bb;
 //    for( r=0; r < image.NumRows; r++ ) {
@@ -858,6 +865,8 @@ void initMyCheckerTextures() {
 
 }
 
+RgbImage normalmap[2];
+
 // Main routine
 // Set up OpenGL, hook up callbacks, and start the main loop
 int main( int argc, char** argv ) {
@@ -877,9 +886,12 @@ int main( int argc, char** argv ) {
     initCheckerTextures(); //- checker per texture procedurale
     initMyCheckerTextures();
     initFour(filenameArray); //- checker su bitmap
+
+
     initCubic(cubicFilenameArray); //- checker su bitmap
     initBump(bumpFilenameArray); // con bumping
 
+    RgbImageInitFile(&normalmap, filenameArray[4]);
     reshape(620,160);
 
     // Set up callback functions for key presses
