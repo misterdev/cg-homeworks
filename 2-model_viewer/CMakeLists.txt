@@ -31,7 +31,7 @@ ADD_DEFINITIONS(-Wno-deprecated-declarations)
 set(SOURCE_FILES
         src/main.c
         src/v3d.c
-        src/v3d.h)
+        src/v3d.h src/utils.h src/utils.c)
 add_executable(2-model_viewer ${SOURCE_FILES})
 
 target_link_libraries(2-model_viewer ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})

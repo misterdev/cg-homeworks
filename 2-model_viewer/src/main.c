@@ -16,20 +16,22 @@ sono primitive GLU e mesh poligonali in formato *.m
  * NB: i vertici di ogni faccia sono in verso orario
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <math.h>
-#include <string.h>
-#include "main.h"
-
 #if defined(__APPLE__) || defined(MACOSX)
 #include <GLUT/glut.h>
 #else
 #include <GL/freeglut.h>
 #endif
 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <math.h>
+#include <string.h>
+#include "main.h"
+#include "utils.h"
 #include "v3d.h"
+
 
 #define MAX_V 10000 // max number of vertices allowed in the mesh model
 #define MAX_P 3     // max number of figures allowed in the program
@@ -218,7 +220,6 @@ void motion( int x, int y ) {
             tbAxis[0] = tbV[1]*tbW[2] - tbV[2]*tbW[1];
             tbAxis[1] = tbV[2]*tbW[0] - tbV[0]*tbW[2];
             tbAxis[2] = tbV[0]*tbW[1] - tbV[1]*tbW[0];
-//            printf("%f , %f %f %f\n", tbAngle,tbAxis[0], tbAxis[1], tbAxis[2]);
         }
     }
 
@@ -475,30 +476,47 @@ void readFile (const char* FILENAME, int faces[MAX_V][3], int nface, float verti
         }
         glEnd();
     }
-
-//    glTranslatef(100.0f, 100.0f, 100.0f);
-//    glPopMatrix();
     glEndList();
 }
 
-void floatAround ( float t ) {
-//    x = r cos(t)    y = r sin(t)
-    float x = 10.0f * (float) cos(t);
-    float z = 10.0f * (float) sin(t);
-    camE[0] = x;
-    camE[2] = z;
-//    printf("%f x=%f z=%f \n", t, camE[0], camE[2]);
+const int NCAM_CPS = 5;
+
+float camCPS[NCAM_CPS][3] = {
+        { 0.0f, 7.0f, 0.000000f },
+        { -17.0f, -3.0f, 0.000000f },
+        { 16.0f, -26.0f, 0.000000f },
+        { 18.0f, 15.0f, 0.000000f },
+        { 0.0f, 7.0f, 0.000000f }
+};
+float camTimer = 0.0f;
+
+void floatAround () {
+    float speed = 0.001f;
+    int i;
+    float temp[NCAM_CPS][3];
+
+    for (i = 0; i < NCAM_CPS; i++) {
+        assignToPoint(temp[i], camCPS[i]);
+    }
+
+    for (i = 1; i < NCAM_CPS; i++) {
+        for (int j = 0; j < NCAM_CPS - i; j++) {
+            lerp(temp[j], temp[j + 1], camTimer, temp[j]);
+        }
+    }
+
+    camE[0] = temp[0][0];
+    camE[2] = temp[0][1];
+
+    if ( camTimer + speed <= 1.0f ) {
+        camTimer += speed;
+    } else {
+        camTimer = 0.0f;
+    }
+
     glutPostRedisplay();
 }
 
-void idle () {
-    if ( cameraMotion >= 0 ) {
-        timer += 0.01f;
-        if(timer > 2 * M_PI)
-            timer = 0.0f;
-        floatAround(timer);
-    }
-}
 
 void init() {
     int 	faces   [MAX_P][MAX_V][3];    /* faces */
@@ -596,6 +614,7 @@ void menu(int sel) {
     }
     if (sel == MODE_FLOAT_AROUND) {
         cameraMotion = (cameraMotion >= 0 ? -1 : 0 );
+        glutIdleFunc(cameraMotion ? floatAround : NULL);
     }
     if( sel == MODE_CHANGE_MATERIAL ) {
         pVCS[0][0] = 90.0;
@@ -658,7 +677,7 @@ void createMenu () {
     glutAddMenuEntry(prompt, MODE_CHANGE_PROJECTION);
     glutAddMenuEntry("",-1);
 
-    prompt = ( cameraMotion >= 0 ) ? "[X] Camera Motion" : "[  ] Camera Motion";
+    prompt = ( cameraMotion >= 0 ) ? "(  ) Camera Motion" : "(X) Camera Motion";
     glutAddMenuEntry(prompt, MODE_FLOAT_AROUND);
     prompt = "      Change Material";
     glutAddMenuEntry(prompt, MODE_CHANGE_MATERIAL);
@@ -729,17 +748,14 @@ void display() {
     // matrice TV di vista
     gluLookAt( camE[0], camE[1], camE[2], camC[0], camC[1], camC[2], camU[0], camU[1], camU[2] );
 
-    // Trackball rotation. - viene messa per prima perche' verra' usata per ultima
-//    printf("TRACKBALL %d, %.2f %.2f %.2f %.2f\n", tbUpdateMatrix, tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
-
-
     glLineWidth(1);
 
     glMultMatrixf(tbRotationMatrix);
+
     glRotatef( pRotations[MAX_P][0], 1.0, 0.0, 0.0);
     glRotatef( pRotations[MAX_P][1], 0.0, 1.0, 0.0);
     glRotatef( pRotations[MAX_P][2], 0.0, 0.0, 1.0);
-//    printf("%f %f %f \n", pRotations[MAX_P][0], pRotations[MAX_P][1], pRotations[MAX_P][2]);
+
     glRotatef(tbAngle, tbAxis[0], tbAxis[1], tbAxis[2]);
 
     glTranslated(pTranslations[MAX_P][0], pTranslations[MAX_P][1], pTranslations[MAX_P][2]);
@@ -758,13 +774,14 @@ void display() {
         tbAxis[1] = 0.0;
     }
 
-
     drawAxis( 2.0, 2 );
 
+    // for each polygon
     for ( int p=0 ; p < MAX_P ; p++ ) {
         glPushMatrix();
         glTranslated(pTranslations[p][0], pTranslations[p][1], pTranslations[p][2]);
-        //draw the mesh modelxx
+
+
         drawAxis( 0.5, 0 );
         glScalef( pScales[p], pScales[p], pScales[p] );
         glRotatef( pRotations[p][0], 1.0, 0.0, 0.0);
@@ -821,8 +838,7 @@ int main (int argc, char** argv) {
     glutMouseFunc(mouse); // pressione e rilascio
     glutMotionFunc(motion);
     glutPassiveMotionFunc(passiveMotion);
-    glutIdleFunc(idle);
-
+    glutIdleFunc(floatAround);
     reset();
     init();
 
