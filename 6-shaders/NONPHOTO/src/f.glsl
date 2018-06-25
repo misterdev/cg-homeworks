@@ -1,8 +1,7 @@
 varying vec3 N;
 varying vec3 L;
 
-void main()
-{
+void main() {
     vec4 a = vec4(0.0,0.5,0.8,1.0);
     vec4 b = vec4(0.0,0.3,0.6,1.0);
     vec4 c = vec4(0.0,0.2,0.5,1.0);

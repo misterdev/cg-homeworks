@@ -2,8 +2,7 @@
 
 GLuint program = 0;
 
-static void init()
-{
+static void init() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
     glMatrixMode(GL_PROJECTION);
@@ -25,8 +24,7 @@ static void init()
     program = initShader("../src/v.glsl", "../src/f.glsl");
 }
 
-static void draw(void)
-{
+static void draw(void) {
     double t = (double)glutGet(GLUT_ELAPSED_TIME);
     double k = 0.05 * 360.0/1000.0;
 
@@ -42,8 +40,7 @@ static void draw(void)
     glutPostRedisplay();
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize(500, 500);
@@ -55,5 +52,4 @@ int main(int argc, char** argv)
 
     glutMainLoop();
     return 0;
-
 }

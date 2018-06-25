@@ -19,3 +19,9 @@ void main() {
 
     gl_FragColor = ambient + diffuse + specular;
 }
+
+//F3
+
+//float ks = pow(max(dot(refl, eye), 0.0), 0.25*gl_FrontMaterial.shininess)
+// qui cambia solo la riflettivita'
+//gl_FragColor = ambient + figguse + specular;
