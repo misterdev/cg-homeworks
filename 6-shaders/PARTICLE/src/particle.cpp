@@ -2,6 +2,10 @@
 
 #define N 100
 
+#ifndef __APPLE__
+glewInit();
+#endif
+
 GLfloat velocity[N][3];
 GLubyte color[N][3];
 
@@ -27,17 +31,16 @@ void randomizeParticles() {
 static void init() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glColor3f(0.0,0.0,0.0);
-    // glPointSize(40.0);
 
     glDisable(GL_DEPTH_TEST);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // gluOrtho2D(-1.0,1.0,-1.0,1.0);
+    gluOrtho2D(-1.0,1.0,-1.0,1.0);
     gluPerspective(85.0, (double) glutGet(GLUT_WINDOW_WIDTH) / (double) glutGet(GLUT_WINDOW_HEIGHT), 1.0, 20.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt (1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    gluLookAt (1.0, 2.0, 5.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -45,17 +48,13 @@ static void init() {
     glEnable(GL_POINT_SPRITE);
     glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
-    #ifndef __APPLE__
-        glewInit();
-    #endif
-
     program = initShader("../src/v.glsl", "../src/f.glsl");
 
     timeParam = glGetUniformLocation(program, "time");
     vxParam = glGetAttribLocation(program, "vx");
     vyParam = glGetAttribLocation(program, "vy");
     vzParam = glGetAttribLocation(program, "vz");
-    
+
     srand(time(0));
 
     randomizeParticles();
@@ -68,7 +67,7 @@ static void draw(void) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     double h = 0.05;
-    glBegin(GL_QUADS);
+    glBegin(GL_POINTS);
     for(i=0; i<N; i++) {
         glColor3ubv(color[i]);
         glVertexAttrib1f(vxParam, velocity[i][0]);
@@ -76,9 +75,6 @@ static void draw(void) {
         glVertexAttrib1f(vzParam, velocity[i][2]);
 
         glVertex2d(h, h);
-        glVertex2d(h, -h);
-        glVertex2d(-h, -h);
-        glVertex2d(-h, h);
     }
     glEnd();
 
