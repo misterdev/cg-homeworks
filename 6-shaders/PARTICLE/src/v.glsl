@@ -7,7 +7,7 @@ void main() {
     vec4 t = gl_Vertex;
     t.y = gl_Vertex.y + (vy * time) + (0.5 * a * time * time);
     t.x = gl_Vertex.x + (vx * 2.5 * time);
-    t.z = gl_Vertex.z + (vz * 2.5 * time);
+    t.z = gl_Vertex.z + (vz * 9.0 * time);
 
 	gl_PointSize = 2.0 * (5.0 + t.y);
 
