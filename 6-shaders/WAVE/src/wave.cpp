@@ -31,7 +31,6 @@ static void init() {
     #endif
     program = initShader("../src/v.glsl", "../src/f.glsl");
 
-
     // qui li chiamo in un modo e li passo al vertex shader v.glsl
     // la tabella la riempo durante l'animazione
     timeParam = glGetUniformLocation(program, "time"); // time param = nome nel programma || time = nome nello shader
@@ -88,7 +87,6 @@ void mouse(int button, int state, int x, int y) {
     }
     // right   -- randomly change frequency through values [0.0005; 0.001; 0.002].
     if( button == GLUT_RIGHT_BUTTON && state == GLUT_UP ) {
-        printf("%d \n", fIndex);
         fIndex = (fIndex+1)%3;
         glUniform1f(frequency, fValues[fIndex]);
     }
