@@ -2,10 +2,20 @@
 
 GLuint         program;
 GLint          timeParam;
-GLint          vertices_two_location;
+GLint          vertices2;
+GLint          colors2;
 
-const GLfloat vertices_one[3][2] = {{0.0, 0.0},{0.5,1.0},{1.0, 0.0}};
-const GLfloat vertices_two[3][2] = {{0.0, 1.0},{0.5,0.0},{1.0, 1.0}};
+const GLfloat vertices_one[4][2] = {{0.2, 0.2},{0.5,0.8},{0.8, 0.2},{0.5,0.8}};
+const GLfloat vertices_two[4][2] = {{0.8, 0.2},{0.2,0.2},{0.2, 0.8},{0.8,0.8}};
+
+const GLfloat colors_one[4][3] = {{0.9, 0.1, 0.1}, {0.1, 0.8, 0.1}, {0.1, 0.1, 0.8}, {0.1, 0.8, 0.8}};
+const GLfloat colors_two[4][3] = {
+        {0.129411764705882f, 0.588235294117647f, 0.952941176470588f},
+        {0.298039215686275f, 0.686274509803922f, 0.313725490196078f},
+        {0.129411764705882f, 0.588235294117647f, 0.952941176470588f},
+        {0.686274509803922f, 0.313725490196078f, 0.298039215686275f}
+};
+
 
 static void init()
 {
@@ -21,14 +31,14 @@ static void init()
     #ifndef __APPLE__
         glewInit();
     #endif
+
     program = initShader("../src/v.glsl", "../src/f.glsl");
 
     // Setup uniform and attribute prameters
-    timeParam = glGetUniformLocation(program, "time");
-    vertices_two_location = glGetAttribLocation(program, "vertices2");
-	/* ----------- ADD ------------------ 
-			handle additional variables if needed
-	*/
+    timeParam   = glGetUniformLocation(program, "time");
+    vertices2   = glGetAttribLocation(program, "vertices2");
+    colors2     = glGetAttribLocation(program, "colors2");
+
 }
 
 static void draw(void)
@@ -37,18 +47,17 @@ static void draw(void)
     glUniform1f(timeParam, glutGet(GLUT_ELAPSED_TIME));
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glBegin(GL_POLYGON);
     
-	glBegin(GL_LINE_LOOP);
-		/* ----------- ADD ------------------ 
-			instead of lines, draw a triangle
-			assign color to the vertices
-		*/
-        glVertexAttrib2fv(vertices_two_location, &vertices_two[0][0]);
-        glVertex2fv(vertices_one[0]);
-        glVertexAttrib2fv(vertices_two_location, &vertices_two[1][0]);
-        glVertex2fv(vertices_one[1]);
-        glVertexAttrib2fv(vertices_two_location, &vertices_two[2][0]);
-        glVertex2fv(vertices_one[2]);
+    for (int i = 0; i < 4; i++) {
+        glVertexAttrib2fv(vertices2, &vertices_two[i][0]);
+        glVertex2fv(vertices_one[i]);
+
+        glVertexAttrib3fv(colors2, &colors_two[i][0]);
+        glColor3fv(colors_one[i]);
+    }
+
     glEnd();
 
     glutSwapBuffers();
