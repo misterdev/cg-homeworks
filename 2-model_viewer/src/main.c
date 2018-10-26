@@ -255,7 +255,7 @@ void keyboard (unsigned char key, int x, int y) {
         step = 1.0;
     } else if( mode == MODE_TRANSLATE_OBJECT ) {
         pos = pTranslations[pSelected];
-        step = 1.0;
+        step = 0.5;
     } else if( mode == MODE_ROTATE_OBJECT ) {
         pos = pRotations[pSelected];
         step = 1.0;
@@ -638,7 +638,7 @@ void createMenu () {
     char *prompt;
     glutCreateMenu(menu);
     glutAddMenuEntry("Menu",-1); //-1 significa che non si vuole gestire questa riga
-    glutAddMenuEntry("Press 0(WCS) to select the world or 1-3(OCS) to select an object",-1);
+    glutAddMenuEntry("Press 0(WCS) to select the world or 1-3(OCS) to select an object", -1);
     glutAddMenuEntry("Press v,V to  Zoom", MODE_CHANGE_ZOOM);
     glutAddMenuEntry("-----------------------------------------------------",-1);
 
