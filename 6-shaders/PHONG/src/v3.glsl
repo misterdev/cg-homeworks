@@ -1,7 +1,7 @@
 varying vec3 N;
 varying vec3 L;
 varying vec3 E;
-varying vec3 H;
+varying vec3 R;
 
 void main() {
     gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
@@ -12,15 +12,5 @@ void main() {
     N = normalize(gl_NormalMatrix * gl_Normal);
     L = normalize(eyeLightPos.xyz - eyePosition.xyz);
     E = -normalize(eyePosition.xyz);
-    H = normalize(L + E);
+    R = - reflect(L, N);
 }
-
-
-// V3
-
-//glPosition = gl modelviewproectionmatrix * glvertex
-
-//L = nooormalize(eyelightpos.zyx ???) //
-//E = -normalize(eyeposiion.xyz) //
-//H = normalize( L+e_) //
-//R = - reflect(L, N) 

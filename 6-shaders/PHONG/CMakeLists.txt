@@ -34,6 +34,8 @@ set(SOURCE_FILES
 		src/f1.glsl
 		src/v2.glsl
 		src/f2.glsl
+		src/v3.glsl
+		src/f3.glsl
         ../../common/common.h)
 
 add_executable(6-phong ${SOURCE_FILES})
