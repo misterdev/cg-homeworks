@@ -8,7 +8,7 @@ GLint          colors2;
 const GLfloat vertices_one[4][2] = {{0.2, 0.2},{0.5,0.8},{0.8, 0.2},{0.5,0.8}};
 const GLfloat vertices_two[4][2] = {{0.8, 0.2},{0.2,0.2},{0.2, 0.8},{0.8,0.8}};
 
-const GLfloat colors_one[4][3] = {{0.9, 0.1, 0.1}, {0.1, 0.8, 0.1}, {0.1, 0.1, 0.8}, {0.1, 0.8, 0.8}};
+const GLfloat colors_one[4][3] = {{0.1, 0.8, 0.8}, {0.9, 0.1, 0.1}, {0.1, 0.8, 0.1}, {0.1, 0.1, 0.8}};
 const GLfloat colors_two[4][3] = {
         {0.129411764705882f, 0.588235294117647f, 0.952941176470588f},
         {0.298039215686275f, 0.686274509803922f, 0.313725490196078f},
@@ -49,7 +49,7 @@ static void draw(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glBegin(GL_POLYGON);
-    
+
     for (int i = 0; i < 4; i++) {
         glVertexAttrib2fv(vertices2, &vertices_two[i][0]);
         glVertex2fv(vertices_one[i]);
