@@ -17,7 +17,11 @@
 
 #ifndef RGBIMAGE_DONT_USE_OPENGL
 #include <windows.h>
-#include "GL/gl.h"
+#if defined(__APPLE__) || defined(MACOSX)
+#include <GLUT/glut.h>
+#else
+#include <GL/freeglut.h>
+#endif
 #endif
 
 void RgbImageSize(RgbImage* image, int numRows, int numCols )
@@ -26,7 +30,7 @@ void RgbImageSize(RgbImage* image, int numRows, int numCols )
 	int rowLen, i, j;
 	image->NumRows = numRows;
 	image->NumCols = numCols;
-	image->ImagePtr = malloc( sizeof(unsigned char) * image->NumRows*GetNumBytesPerRow(image) );
+	image->ImagePtr = (unsigned char*) malloc( sizeof(unsigned char) * image->NumRows*GetNumBytesPerRow(image) );
 	if ( !image->ImagePtr ) {
 		fprintf(stderr, "Unable to allocate memory for %ld x %ld bitmap.\n",
 				image->NumRows, image->NumCols);
@@ -76,7 +80,7 @@ bool LoadBmpFile(RgbImage* image, const char* filename )
 		skipChars( infile, 4+4+4+4+4+4 );		// Skip 6 more fields
 
 		if ( image->NumCols>0 && image->NumCols<=100000 && image->NumRows>0 && image->NumRows<=100000
-			&& bitsPerPixel==24 && !feof(infile) ) {
+			 && bitsPerPixel==24 && !feof(infile) ) {
 			fileFormatOK = true;
 		}
 	}
@@ -89,7 +93,7 @@ bool LoadBmpFile(RgbImage* image, const char* filename )
 	}
 
 	// Allocate memory
-	image->ImagePtr = malloc( sizeof(unsigned char) * image->NumRows*GetNumBytesPerRow(image) );
+	image->ImagePtr = (unsigned char*) malloc( sizeof(unsigned char) * image->NumRows*GetNumBytesPerRow(image) );
 	if ( !image->ImagePtr ) {
 		fprintf(stderr, "Unable to allocate memory for %ld x %ld bitmap: %s.\n",
 				image->NumRows, image->NumCols, filename);
@@ -263,8 +267,8 @@ void writeShort( short data, FILE* outfile )
 void SetRgbPixelf(RgbImage* image,  long row, long col, double red, double green, double blue )
 {
 	SetRgbPixelc( image, row, col, doubleToUnsignedChar(red),
-							doubleToUnsignedChar(green),
-							doubleToUnsignedChar(blue) );
+				  doubleToUnsignedChar(green),
+				  doubleToUnsignedChar(blue) );
 }
 
 void SetRgbPixelc( RgbImage* image, long row, long col,
@@ -369,7 +373,7 @@ void RgbImageInit(RgbImage* image)
 	image->ErrorCode = 0;
 }
 
-bool RgbImageInitFile(RgbImage *image, const char* filename )
+bool RgbImageInitFile(RgbImage* image, const char* filename )
 {
 	image->NumRows = 0;
 	image->NumCols = 0;

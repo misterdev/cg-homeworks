@@ -29,9 +29,11 @@ set(CMAKE_WARN_DEPRECATED FALSE)
 ADD_DEFINITIONS(-Wno-deprecated-declarations)
 
 set(SOURCE_FILES
-		src/cubetexshader.cpp
+        src/cubetexshader.cpp
 		src/v.glsl
 		src/f.glsl
+        src/RgbImage.h
+        src/RgbImage.cpp
         ../../common/common.h)
 
 add_executable(6-cubemap ${SOURCE_FILES})
