@@ -100,30 +100,6 @@ int main(int argc, char** argv)
     int i,j,k;
     float d;
 
-    /*
-    for(i=0;i<N;i++)
-    {
-        for(j=0;j<N;j++)
-        {
-            normals[i][j][0] = 0.5;
-            normals[i][j][1] = 0.5;
-            normals[i][j][2] = 1.0;
-        }
-    }
-
-    i = N/2;
-    for(j=0;j<N;j++)
-    {
-        normals[i][j][0] = 1.0;
-        normals[i][j][1] = 0.5;
-        normals[i][j][2] = 0.5;
-
-        normals[i+8][j][0] = 0.0;
-        normals[i+8][j][1] = 0.5;
-        normals[i+8][j][2] = 0.5;
-    }
-    */
-
     float data[N+1][N+1];
     for(i=0;i<N+1;i++)
         for(j=0;j<N+1;j++)
@@ -131,7 +107,12 @@ int main(int argc, char** argv)
 
     for(i=N/4; i< 3*N/4; i++)
         for(j=N/4;j<3*N/4;j++)
-            data[i][j] = 100.5;
+            data[i][j] = 99 + i/20 + j/20;
+
+    for(i=0; i < N; i++)
+        for(j=0; j < N; j++)
+            if(i == j) data[i][j] = 90 + i/20 - j/20;
+
 
     for(i=0;i<N;i++)
     {
