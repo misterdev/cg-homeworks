@@ -331,7 +331,6 @@ void reset() {
     pTranslations[MAX_P][0] = 0.0;
     pTranslations[MAX_P][1] = 0.0;
     pTranslations[MAX_P][2] = 0.0;
-    // TODO protations
 
     camE[0] = 8.8;
     camE[1] = 4.9;
