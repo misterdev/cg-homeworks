@@ -1,0 +1,1 @@
+./build/4-ray_tracing -size 200 200 -input ./models/reflective_spheres.obj -background_color 0.2 0.1 0.6 -num_shadow_samples 1 -num_bounces 3
