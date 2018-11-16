@@ -83,7 +83,6 @@ RayTracer::TraceRay (Ray & ray, Hit & hit, int bounce_count) const
   Material *m = hit.getMaterial ();
   if (intersect == true)
   {
-
 	assert (m != NULL);
 	Vec3f normal = hit.getNormal ();
 	Vec3f point = ray.pointAtParameter (hit.getT ());
@@ -100,15 +99,21 @@ RayTracer::TraceRay (Ray & ray, Hit & hit, int bounce_count) const
 	// ==========================================
 	// ASSIGNMENT:  ADD REFLECTIVE LOGIC
 	// ==========================================
-	
-	// se (il punto sulla superficie e' riflettente & bounce_count>0)
-    
-	//     calcolare ReflectionRay  R=2<n,l>n -l
 
-    //	   invocare TraceRay(ReflectionRay, hit,bounce_count-1)
-	
-	//     aggiungere ad answer il contributo riflesso
-	
+	// se (il punto sulla superficie e' riflettente & bounce_count>0)
+	  //printf("%d\n",bounce_count);
+    if(bounce_count>0 && reflectiveColor.Length()>0) {
+
+
+		Vec3f ReflectionRay = ray.getDirection()-2*(ray.getDirection().Dot3(hit.getNormal()))*hit.getNormal();
+
+		Ray reflected(ray.pointAtParameter(hit.getT()),ReflectionRay);
+		//	   invocare TraceRay(ReflectionRay, hit,bounce_count-1)
+		Hit h;
+		Vec3f recursive_answer=TraceRay(reflected,h,bounce_count-1);
+		//     aggiungere ad answer il contributo riflesso
+		answer+=m->getReflectiveColor()*recursive_answer;
+	}
 	// ----------------------------------------------
 	// add each light
 	int num_lights = mesh->getLights ().size ();
